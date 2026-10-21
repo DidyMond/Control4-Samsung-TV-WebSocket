@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Segnalazione di sicurezza / Security report
+    url: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/security/advisories/new
+    about: "Vulnerabilità o fughe del token di abbinamento: segnalale in privato, non in una issue pubblica. / Vulnerabilities or leaks of the pairing token: report them privately, not in a public issue."
   - name: Documentazione / Documentation
     url: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/blob/main/README.md
     about: README (configurazione, pairing, risoluzione problemi) e architettura prima di aprire una issue. / README (setup, pairing, troubleshooting) and architecture before opening an issue.

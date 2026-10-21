@@ -1,0 +1,468 @@
+<devicedata>
+	<name>Samsung TV (WebSocket)</name>
+	<model>Smart TV (Tizen, WebSocket API)</model>
+	<creator>Davide Dimo</creator>
+	<created>08/30/2026 11:19 AM</created>
+	<modified>10/21/2026 06:00 PM</modified>
+	<manufacturer>Samsung</manufacturer>
+	<version>261021001</version>
+	<control>lua_gen</control>
+	<controlmethod>ip</controlmethod>
+	<driver>DriverWorks</driver>
+	<search_type>c4:av_gen</search_type>
+	<copyright>Copyright 2026 Davide Dimo. Released under the MIT License.</copyright>
+	<config>
+		<properties>
+			<property>
+				<name>-DriverInformation</name>
+				<type>LABEL</type>
+				<default>Driver Information</default>
+			</property>
+			<property>
+				<name>Driver Version</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>261021001</default>
+			</property>
+			<property>
+				<name>-Connection</name>
+				<type>LABEL</type>
+				<default>Connection</default>
+			</property>
+			<property>
+				<name>IP Address</name>
+				<type>STRING</type>
+				<readonly>false</readonly>
+				<default></default>
+			</property>
+			<property>
+				<name>Port</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>8002</default>
+				<items>
+					<item>8001</item>
+					<item>8002</item>
+				</items>
+			</property>
+			<property>
+				<name>Device Name</name>
+				<type>STRING</type>
+				<readonly>false</readonly>
+				<default>Control4-TV</default>
+			</property>
+			<property>
+				<name>Pairing Status</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>Not paired</default>
+			</property>
+			<property>
+				<name>Pairing</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Select...</default>
+				<items>
+					<item>Select...</item>
+					<item>Pair with TV</item>
+					<item>Unpair</item>
+				</items>
+			</property>
+			<property>
+				<name>-Debug</name>
+				<type>LABEL</type>
+				<default>Debug</default>
+			</property>
+			<property>
+				<name>Log Level</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>3 - Info</default>
+				<items>
+					<item>0 - Alert</item>
+					<item>1 - Error</item>
+					<item>2 - Warning</item>
+					<item>3 - Info</item>
+					<item>4 - Trace</item>
+					<item>5 - Debug</item>
+				</items>
+			</property>
+			<property>
+				<name>Log Mode</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Off</default>
+				<items>
+					<item>Off</item>
+					<item>Print</item>
+					<item>Log</item>
+					<item>Print and Log</item>
+				</items>
+			</property>
+		</properties>
+		<script file="driver.lua" encryption="0"></script>
+		<commands>
+			<command>
+				<name>SEND_KEY</name>
+				<description>Send a raw Samsung key code to the TV (e.g. KEY_HOME, KEY_HDMI1)</description>
+				<params>
+					<param>
+						<name>KeyCode</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+			<command>
+				<name>LAUNCH_APP</name>
+				<description>Launch a TV app by name (Netflix, YouTube, Prime Video, Disney+, Apple TV, Spotify, DAZN, RaiPlay, Paramount+)</description>
+				<params>
+					<param>
+						<name>AppName</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+		</commands>
+		<documentation file="www/documentation.rtf">SAMSUNG TV (WebSocket) - Unofficial Control4 driver for Samsung Tizen Smart TVs.
+SETUP: 1) set IP Address; 2) set Pairing to "Pair with TV" and accept the popup on the TV; 3) bind the MiniApp drivers to the MiniApp slots for the Watch experience.
+Full guide (IT/EN): www/documentation.rtf and https://github.com/DidyMond/Control4-Samsung-TV-WebSocket</documentation>
+		<identify_text>Unofficial Samsung Tizen driver (WebSocket). Pair from the Pairing property.</identify_text>
+		<power_management_method>ToggleCode</power_management_method>
+		<power_command_delay>0</power_command_delay>
+		<power_delay>0</power_delay>
+		<power_command_needed>True</power_command_needed>
+	</config>
+	<proxies qty="2">
+		<proxy proxybindingid="5000" name="Samsung TV (WebSocket)">tv</proxy>
+		<proxy proxybindingid="5002" name="Samsung App Switcher">avswitch</proxy>
+	</proxies>
+	<capabilities>
+		<driver_name>samsung_tv_websocket</driver_name>
+		<has_audio>True</has_audio>
+		<has_discrete_volume_control>False</has_discrete_volume_control>
+		<has_discrete_mute_control>False</has_discrete_mute_control>
+		<has_up_down_volume_control>True</has_up_down_volume_control>
+		<has_toggle_mute_control>True</has_toggle_mute_control>
+		<has_channel_up_down>True</has_channel_up_down>
+		<has_discrete_input_select>True</has_discrete_input_select>
+		<video_provider_count>0</video_provider_count>
+		<video_consumer_count>3</video_consumer_count>
+		<audio_provider_count>1</audio_provider_count>
+		<audio_consumer_count>0</audio_consumer_count>
+		<reports_offline>true</reports_offline>
+	</capabilities>
+	<connections>
+		<connection>
+			<id>5000</id>
+			<facing>6</facing>
+			<connectionname>SAMSUNG TV (WebSocket)</connectionname>
+			<type>2</type>
+			<consumer>False</consumer>
+			<audiosource>False</audiosource>
+			<videosource>False</videosource>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>TV</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000">
+			<id>1001</id>
+			<facing>6</facing>
+			<connectionname>HDMI 1</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<audiosource>False</audiosource>
+			<videosource>False</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000">
+			<id>1002</id>
+			<facing>6</facing>
+			<connectionname>HDMI 2</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<audiosource>False</audiosource>
+			<videosource>False</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000">
+			<id>1003</id>
+			<facing>6</facing>
+			<connectionname>HDMI 3</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<audiosource>False</audiosource>
+			<videosource>False</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000">
+			<id>4000</id>
+			<facing>6</facing>
+			<connectionname>Audio Output</connectionname>
+			<type>6</type>
+			<consumer>False</consumer>
+			<audiosource>True</audiosource>
+			<videosource>False</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+				</class>
+				<class>
+					<classname>DIGITAL_OPTICAL</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000" verified="True">
+			<id>7000</id>
+			<facing>6</facing>
+			<connectionname>Room Selection - Output</connectionname>
+			<type>7</type>
+			<consumer>False</consumer>
+			<audiosource>True</audiosource>
+			<videosource>True</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>AUDIO_SELECTION</classname>
+				</class>
+				<class>
+					<classname>AUDIO_VOLUME</classname>
+				</class>
+				<class>
+					<classname>VIDEO_SELECTION</classname>
+				</class>
+			</classes>
+		</connection>
+		<!-- Connessioni "ponte" autobind per App Switcher (nascoste) -->
+		<connection proxybindingid="5000">
+			<id>1102</id>
+			<type>5</type>
+			<connectionname>Samsung App Switch Video In</connectionname>
+			<consumer>True</consumer>
+			<linelevel>True</linelevel>
+			<idautobind>10</idautobind>
+			<hidden>True</hidden>
+			<classes>
+				<class>
+					<classname>COMPONENT</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>HDMI</classname>
+					<autobind>true</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5000">
+			<id>3101</id>
+			<type>6</type>
+			<connectionname>Samsung App Switch Audio In</connectionname>
+			<consumer>True</consumer>
+			<linelevel>True</linelevel>
+			<idautobind>20</idautobind>
+			<hidden>True</hidden>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>DIGITAL_COAX</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>DIGITAL_OPTICAL</classname>
+					<autobind>true</autobind>
+				</class>
+			</classes>
+		</connection>
+		<!-- Proxy avswitch -->
+		<connection>
+			<id>5002</id>
+			<type>2</type>
+			<connectionname>AVSWITCH</connectionname>
+			<consumer>False</consumer>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>AVSWITCH</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>2110</id>
+			<type>5</type>
+			<connectionname>Samsung App Switch Video Out</connectionname>
+			<consumer>False</consumer>
+			<linelevel>True</linelevel>
+			<idautobind>10</idautobind>
+			<hidden>True</hidden>
+			<classes>
+				<class>
+					<classname>COMPONENT</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>HDMI</classname>
+					<autobind>true</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>4110</id>
+			<type>6</type>
+			<connectionname>Samsung App Switch Audio Out</connectionname>
+			<consumer>False</consumer>
+			<linelevel>True</linelevel>
+			<idautobind>20</idautobind>
+			<hidden>True</hidden>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>DIGITAL_COAX</classname>
+					<autobind>true</autobind>
+				</class>
+				<class>
+					<classname>DIGITAL_OPTICAL</classname>
+					<autobind>true</autobind>
+				</class>
+			</classes>
+		</connection>
+		<!-- Slot MiniApp (per i Minidriver ufficiali Control4) -->
+		<connection proxybindingid="5002">
+			<id>3201</id>
+			<type>5</type>
+			<connectionname>MiniApp 1</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3202</id>
+			<type>5</type>
+			<connectionname>MiniApp 2</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3203</id>
+			<type>5</type>
+			<connectionname>MiniApp 3</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3204</id>
+			<type>5</type>
+			<connectionname>MiniApp 4</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3205</id>
+			<type>5</type>
+			<connectionname>MiniApp 5</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3206</id>
+			<type>5</type>
+			<connectionname>MiniApp 6</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3207</id>
+			<type>5</type>
+			<connectionname>MiniApp 7</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3208</id>
+			<type>5</type>
+			<connectionname>MiniApp 8</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3209</id>
+			<type>5</type>
+			<connectionname>MiniApp 9</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+	</connections>
+	<composer_categories>
+		<category>Audio/Video</category>
+	</composer_categories>
+	<navigator_categories>
+		<category>Home</category>
+	</navigator_categories>
+</devicedata>

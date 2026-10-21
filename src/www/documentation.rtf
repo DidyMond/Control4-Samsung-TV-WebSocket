@@ -1,0 +1,84 @@
+{\rtf1\ansi\ansicpg1252\uc1\deff0{\fonttbl{\f0\fswiss\fcharset0 Arial;}}
+\viewkind4
+\pard\lang1040\fs20 \b\fs24 SAMSUNG TV (WebSocket) - Driver Control4 non ufficiale\b0\fs20\par\par
+\par\b DESCRIZIONE\b0\par
+Controllo di Smart TV Samsung Tizen (2016 e successive, serie K/M/N/Q/T/A/B/C) tramite le API locali della TV. Il protocollo non \u232? ufficiale: \u232? stato ricostruito dalla community (samsungtvws, Home Assistant). Nessun cloud, nessuna licenza, Lua non cifrato.\par
+Tre canali di comunicazione:\par
+\li284\fi-284 - WebSocket (porta scelta nella propriet\u224? Port): telecomando, cio\u232? tasti, navigazione, trasporto.\par\pard\lang1040\fs20 
+\li284\fi-284 - REST http, porta 8001: stato ON/OFF (PowerState) con polling adattivo, ogni 2 s a TV accesa e ogni 10 s a TV spenta.\par\pard\lang1040\fs20 
+\li284\fi-284 - REST https, porta 8002: lancio delle applicazioni.\par\pard\lang1040\fs20 
+\par\b REQUISITI\b0\par
+\li284\fi-284 - TV e controller Control4 nella stessa subnet/VLAN: le TV rifiutano il WebSocket da subnet diverse.\par\pard\lang1040\fs20 
+\li284\fi-284 - Sulla TV: Gestione connessione dispositivi, Notifica di accesso = Solo la prima volta (Device Connection Manager > Access Notification = First Time Only).\par\pard\lang1040\fs20 
+\li284\fi-284 - Indirizzo IP fisso o DHCP reservation per la TV.\par\pard\lang1040\fs20 
+\li284\fi-284 - Testato su Control4 OS 3.4.3 con Composer Pro 3.4.3.\par\pard\lang1040\fs20 
+\par\b CONFIGURAZIONE\b0\par
+\li284\fi-284 1. Aggiungi il driver in Composer Pro e imposta IP Address. Port: 8002 consigliata per i modelli dal 2018; Device Name \u232? il nome con cui il controller compare sulla TV.\par\pard\lang1040\fs20 
+\li284\fi-284 2. Imposta la propriet\u224? Pairing su "Pair with TV" e conferma il popup che compare sulla TV entro 60 secondi.\par\pard\lang1040\fs20 
+\li284\fi-284 3. Pairing Status diventa "Paired". Le connessioni successive sono silenziose, senza popup.\par\pard\lang1040\fs20 
+\li284\fi-284 4. Per la Watch experience, collega i minidriver ufficiali Control4 agli slot MiniApp 1-9 del driver.\par\pard\lang1040\fs20 
+\par\b WATCH EXPERIENCE E MINIAPP\b0\par
+Il driver espone la proxy "Samsung App Switcher" (avswitch) con 9 slot MiniApp, nell'ordine: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+. Collegando i minidriver agli slot, le tile compaiono nel Navigator e la selezione lancia l'app sulla TV. Se la TV \u232? spenta, il driver attende l'accensione (fino a circa 15 secondi) e poi lancia l'app.\par
+Con un'app aperta, il tastierino a schermo del Navigator invia comandi PASSTHROUGH (frecce, ENTER, MENU, PLAY, PAUSE...) tradotti nei tasti Samsung corrispondenti. EJECT chiude l'app (KEY_EXIT).\par
+\par\b COMANDI\b0\par
+\li284\fi-284 - ON/OFF consapevoli dello stato reale: nessun toggle indesiderato se la TV \u232? gi\u224? nello stato richiesto.\par\pard\lang1040\fs20 
+\li284\fi-284 - Volume e canali con ripetizione alla pressione prolungata (si ferma al rilascio o dopo 20 s).\par\pard\lang1040\fs20 
+\li284\fi-284 - Mute, numeri, navigazione, trasporto, tasti colore, selezione ingresso HDMI 1-3.\par\pard\lang1040\fs20 
+\li284\fi-284 - Composer Programming: SEND_KEY (parametro KeyCode, es. KEY_HOME, KEY_HDMI1) e LAUNCH_APP (parametro AppName, es. Netflix).\par\pard\lang1040\fs20 
+\li284\fi-284 - I tasti non inviabili entro 5 secondi (TV irraggiungibile) vengono scartati: niente comandi "in ritardo".\par\pard\lang1040\fs20 
+\par\b EVENTI\b0\par
+Il driver notifica i cambi di stato alla proxy TV: in Programming sono disponibili gli eventi Power On e Power Off. Lo spegnimento \u232? confermato da due letture consecutive, quindi viene rilevato entro pochi secondi e un singolo errore di rete non genera un falso Power Off. Al riavvio del driver lo stato iniziale viene letto senza generare eventi.\par
+\par\b LOG E DIAGNOSI\b0\par
+Log Mode (Off, Print, Log, Print and Log; predefinito Off) e Log Level (0 Alert ... 5 Debug; predefinito 3 Info) regolano destinazione e dettaglio. Ogni riga ha un tag: [REST] stato, [WS] WebSocket, [PAIR] abbinamento, [CMD] comandi, [APP] lancio app, [LIFECYCLE] e [DRIVER] ciclo di vita ed errori. Il token di abbinamento non compare mai nei log. Per una segnalazione imposta Log Mode = Print e Log Level = 5 - Debug.\par
+\par\b RISOLUZIONE PROBLEMI\b0\par
+\li284\fi-284 - Popup a ogni connessione: token non salvato. Esegui Pairing = Unpair e poi Pair with TV, confermando il popup.\par\pard\lang1040\fs20 
+\li284\fi-284 - Nessun popup in pairing: verifica TV accesa e IP corretto; controlla i dispositivi bloccati in Gestione connessione dispositivi; prova a cambiare Device Name.\par\pard\lang1040\fs20 
+\li284\fi-284 - Cambio di IP o di Device Name: il token pu\u242? non valere pi\u249?; se i comandi smettono di funzionare ripeti il pairing (con il cambio di IP il token viene azzerato da solo).\par\pard\lang1040\fs20 
+\li284\fi-284 - Il lancio app va in timeout: sui modelli 2022 e successivi l'endpoint risponde solo in HTTPS sulla 8002; il driver lo gestisce da solo.\par\pard\lang1040\fs20 
+\li284\fi-284 - La sessione WebSocket si chiude da sola dopo circa 20 secondi: \u232? il comportamento normale del firmware; il driver si riconnette al comando successivo, senza nuovi popup.\par\pard\lang1040\fs20 
+\par\b NOTE\b0\par
+\li284\fi-284 - La TV non si spegne mai del tutto: resta in standby con la rete attiva, quindi ON e OFF funzionano da standby e il Wake-on-LAN non serve. Se si toglie corrente alla TV non pu\u242? essere riaccesa.\par\pard\lang1040\fs20 
+\li284\fi-284 - Il driver non usa il protocollo proprietario dei driver Samsung ufficiali di Control4 (porta 1515, IR).\par\pard\lang1040\fs20 
+Driver non ufficiale, fornito "cos\u236? com'\u232?" senza garanzie, con licenza MIT. Samsung e Tizen sono marchi dei rispettivi proprietari. Codice sorgente, guida completa e segnalazione problemi: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket\par
+\par\pard\fs20 ----------------------------------------\par\par
+\pard\lang2057\fs20 \b\fs24 SAMSUNG TV (WebSocket) - Unofficial Control4 driver\b0\fs20\par\par
+\par\b DESCRIPTION\b0\par
+Controls Samsung Tizen Smart TVs (2016 and later, K/M/N/Q/T/A/B/C series) through the TV's local APIs. The protocol is not official: it was reverse-engineered by the community (samsungtvws, Home Assistant). No cloud, no licensing, unencrypted Lua.\par
+Three communication channels:\par
+\li284\fi-284 - WebSocket (port chosen in the Port property): remote control, i.e. keys, navigation, transport.\par\pard\lang2057\fs20 
+\li284\fi-284 - REST http, port 8001: ON/OFF state (PowerState) with adaptive polling, every 2 s while the TV is on and every 10 s while it is off.\par\pard\lang2057\fs20 
+\li284\fi-284 - REST https, port 8002: application launch.\par\pard\lang2057\fs20 
+\par\b REQUIREMENTS\b0\par
+\li284\fi-284 - TV and Control4 controller on the same subnet/VLAN: TVs refuse WebSocket connections from other subnets.\par\pard\lang2057\fs20 
+\li284\fi-284 - On the TV: Device Connection Manager > Access Notification = First Time Only.\par\pard\lang2057\fs20 
+\li284\fi-284 - Static IP address or DHCP reservation for the TV.\par\pard\lang2057\fs20 
+\li284\fi-284 - Tested on Control4 OS 3.4.3 with Composer Pro 3.4.3.\par\pard\lang2057\fs20 
+\par\b SETUP\b0\par
+\li284\fi-284 1. Add the driver in Composer Pro and set IP Address. Port: 8002 is recommended for 2018+ models; Device Name is the name the controller shows on the TV.\par\pard\lang2057\fs20 
+\li284\fi-284 2. Set the Pairing property to "Pair with TV" and accept the popup that appears on the TV within 60 seconds.\par\pard\lang2057\fs20 
+\li284\fi-284 3. Pairing Status becomes "Paired". Later connections are silent, with no popup.\par\pard\lang2057\fs20 
+\li284\fi-284 4. For the Watch experience, bind the official Control4 minidrivers to the driver's MiniApp 1-9 slots.\par\pard\lang2057\fs20 
+\par\b WATCH EXPERIENCE AND MINIAPPS\b0\par
+The driver exposes the "Samsung App Switcher" proxy (avswitch) with 9 MiniApp slots, in this order: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+. Binding minidrivers to the slots makes the tiles appear in the Navigator, and selecting one launches the app on the TV. If the TV is off, the driver waits for it to turn on (up to about 15 seconds) and then launches the app.\par
+With an app open, the Navigator's on-screen keypad sends PASSTHROUGH commands (arrows, ENTER, MENU, PLAY, PAUSE...) translated into the matching Samsung keys. EJECT closes the app (KEY_EXIT).\par
+\par\b COMMANDS\b0\par
+\li284\fi-284 - ON/OFF aware of the real state: no unwanted toggle if the TV is already in the requested state.\par\pard\lang2057\fs20 
+\li284\fi-284 - Volume and channels repeat while a button is held (stops on release or after 20 s).\par\pard\lang2057\fs20 
+\li284\fi-284 - Mute, numbers, navigation, transport, colour keys, HDMI 1-3 input selection.\par\pard\lang2057\fs20 
+\li284\fi-284 - Composer Programming: SEND_KEY (KeyCode parameter, e.g. KEY_HOME, KEY_HDMI1) and LAUNCH_APP (AppName parameter, e.g. Netflix).\par\pard\lang2057\fs20 
+\li284\fi-284 - Keys that cannot be sent within 5 seconds (TV unreachable) are dropped: no "late" commands.\par\pard\lang2057\fs20 
+\par\b EVENTS\b0\par
+The driver notifies state changes to the TV proxy: the Power On and Power Off events are available in Programming. Power Off is confirmed by two consecutive readings, so it is detected within a few seconds and a single network glitch does not produce a false Power Off. When the driver restarts, the initial state is read without generating events.\par
+\par\b LOGGING AND DIAGNOSIS\b0\par
+Log Mode (Off, Print, Log, Print and Log; default Off) and Log Level (0 Alert ... 5 Debug; default 3 Info) set destination and detail. Every line has a tag: [REST] state, [WS] WebSocket, [PAIR] pairing, [CMD] commands, [APP] app launch, [LIFECYCLE] and [DRIVER] lifecycle and errors. The pairing token never appears in the logs. For a bug report set Log Mode = Print and Log Level = 5 - Debug.\par
+\par\b TROUBLESHOOTING\b0\par
+\li284\fi-284 - Popup on every connection: the token was not saved. Run Pairing = Unpair and then Pair with TV, accepting the popup.\par\pard\lang2057\fs20 
+\li284\fi-284 - No popup while pairing: check that the TV is on and the IP is correct; check blocked devices in Device Connection Manager; try changing Device Name.\par\pard\lang2057\fs20 
+\li284\fi-284 - Changed IP or Device Name: the token may no longer be valid; if commands stop working, pair again (a changed IP clears the token automatically).\par\pard\lang2057\fs20 
+\li284\fi-284 - App launch times out: on 2022+ models the endpoint only answers over HTTPS on 8002; the driver handles this by itself.\par\pard\lang2057\fs20 
+\li284\fi-284 - The WebSocket session closes by itself after about 20 seconds: this is normal firmware behaviour; the driver reconnects on the next command with no new popup.\par\pard\lang2057\fs20 
+\par\b NOTES\b0\par
+\li284\fi-284 - The TV never switches off completely: it stays in standby with the network active, so ON and OFF work from standby and Wake-on-LAN is not needed. If power to the TV is cut, it cannot be turned back on.\par\pard\lang2057\fs20 
+\li284\fi-284 - The driver does not use the proprietary protocol of the official Samsung drivers for Control4 (port 1515, IR).\par\pard\lang2057\fs20 
+Unofficial driver, provided "as is" without warranty, MIT licence. Samsung and Tizen are trademarks of their respective owners. Source code, full guide and issue tracker: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket\par
+}

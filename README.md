@@ -12,6 +12,13 @@
 
 > Driver non ufficiale, non affiliato a Samsung, Snap One o Control4. / Unofficial driver, not affiliated with Samsung, Snap One or Control4.
 
+## Screenshot
+
+Proprietà del driver in Composer Pro (IP di esempio). `Pairing Status` mostra se la TV è abbinata; `Pairing` avvia o cancella l'abbinamento.
+*Driver properties in Composer Pro (example IP). `Pairing Status` shows whether the TV is paired; `Pairing` starts or removes the pairing.*
+
+![Proprietà del driver in Composer Pro / Driver properties in Composer Pro](docs/screenshots/properties.png)
+
 ---
 
 ## Italiano

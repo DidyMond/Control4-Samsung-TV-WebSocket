@@ -1,0 +1,96 @@
+name: Bug report / Segnalazione bug
+description: Report something that does not work as expected / Segnala qualcosa che non funziona come previsto
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per la segnalazione. Più i dati sono precisi (versioni, modello di TV, **log**), più è rapido capire il problema.
+        *Thanks for reporting. The more precise the data (versions, TV model, **logs**), the faster the problem can be understood.*
+
+        **Privacy:** il token di abbinamento è già oscurato nei log, ma le righe contengono l'indirizzo IP della TV. Sostituiscilo se non vuoi condividerlo.
+        *The pairing token is already hidden in the logs, but the lines contain the TV's IP address. Replace it if you do not want to share it.*
+  - type: input
+    id: version
+    attributes:
+      label: Versione del driver / Driver version
+      description: Proprietà *Driver Version* in Composer. / The *Driver Version* property in Composer.
+      placeholder: "261021001"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Ambiente / Environment
+      description: Control4 OS, Composer Pro, dove vedi il problema (pannello, app iOS/Android, Composer). / Control4 OS, Composer Pro, where you see the problem (panel, iOS/Android app, Composer).
+      placeholder: "OS 3.4.3, Composer Pro 3.4.3, T4 8\""
+    validations:
+      required: true
+  - type: input
+    id: tv
+    attributes:
+      label: Modello di TV / TV model
+      description: Modello completo (etichetta o menu Informazioni) e anno, versione firmware se la conosci. / Full model (label or About menu) and year, firmware version if you know it.
+      placeholder: "UE55CU7170 (2023), firmware 1600"
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configurazione / Configuration
+      description: |
+        Proprietà *Port* (8001 / 8002), *Pairing Status*, TV via cavo o Wi-Fi, TV e controller nella stessa subnet, minidriver collegati agli slot MiniApp.
+        / *Port* property (8001 / 8002), *Pairing Status*, TV wired or Wi-Fi, TV and controller on the same subnet, minidrivers bound to the MiniApp slots.
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Cosa succede / What happens
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Come riprodurlo / Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso / Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        In Composer imposta *Log Mode* = `Print` e *Log Level* = `5 - Debug`, riproduci il problema e copia dal Lua Output le righe attorno all'errore, con qualche riga prima e dopo.
+        / In Composer set *Log Mode* = `Print` and *Log Level* = `5 - Debug`, reproduce the problem and copy the lines around the error from the Lua Output, with a few lines before and after.
+
+        - **Stato ON/OFF / power state:** righe `[REST]`.
+        - **Telecomando / remote:** `[WS]`, `[CMD]`.
+        - **Abbinamento / pairing:** `[PAIR]`.
+        - **App e MiniApp:** `[APP]`.
+        - **Errori / errors:** `[DRIVER]` (errori non gestiti, sempre visibili / unhandled errors, always visible).
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Altro / Anything else
+      description: Quando succede (dopo un riavvio del controller, TV in standby, da quanto…). / When it happens (after a controller restart, TV in standby, since when…).
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Prima di inviare / Before submitting
+      options:
+        - label: Ho cercato fra le issue esistenti e letto la risoluzione problemi del README. / I searched the existing issues and read the README troubleshooting.
+          required: true
+        - label: Ho controllato i log prima di incollarli. / I reviewed the logs before pasting them.
+          required: true

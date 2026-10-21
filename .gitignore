@@ -1,0 +1,30 @@
+# Build output: i .c4z non si committano, si allegano alle GitHub Releases
+releases/*.c4z
+releases/*.zip
+
+# Documenti di lavoro interni (note, dossier di contesto): restano solo in locale
+docs/*.local.md
+CLAUDE.md
+TODO*.md
+
+# Driver ufficiali di terzi usati solo come riferimento: non ridistribuibili
+references/
+
+# Strumenti e file locali
+.codegraph/
+.vscode/
+.idea/
+.env
+.env.*
+*.local
+*.bak
+*.tmp
+*.old
+*.scratch
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.stackdump

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentazione / Documentation
+    url: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/blob/main/README.md
+    about: README (configurazione, pairing, risoluzione problemi) e architettura prima di aprire una issue. / README (setup, pairing, troubleshooting) and architecture before opening an issue.

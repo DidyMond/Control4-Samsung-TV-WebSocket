@@ -1,0 +1,48 @@
+name: Feature request / Richiesta di funzionalità
+description: Suggest an idea or an improvement / Proponi un'idea o un miglioramento
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per l'idea. Spiegare il **problema** che vuoi risolvere aiuta più che descrivere la soluzione.
+        *Thanks for the idea. Explaining the **problem** you want to solve helps more than describing the solution.*
+  - type: textarea
+    id: problem
+    attributes:
+      label: Che problema vuoi risolvere / What problem do you want to solve
+      description: Cosa fai oggi e cosa ti manca. Un esempio concreto (una scena, un tasto, un'app) aiuta. / What you do today and what is missing. A concrete example (a scene, a key, an app) helps.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Cosa proponi / What you propose
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative considerate / Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / Area
+      options:
+        - Comandi e tasti / Commands and keys
+        - Watch experience e MiniApp / Watch experience and MiniApps
+        - Stato ON/OFF ed eventi / Power state and events
+        - Pairing e connessione / Pairing and connection
+        - Nuove app da lanciare / More apps to launch
+        - Documentazione / Documentation
+        - Non so / Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Prima di inviare / Before submitting
+      options:
+        - label: Ho cercato fra le issue esistenti. / I searched the existing issues.
+          required: true

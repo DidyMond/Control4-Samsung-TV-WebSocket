@@ -1,0 +1,21 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Offline tests (LuaJIT)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # LuaJIT = Lua 5.1, la stessa semantica di DriverWorks. PowerShell (pwsh) è già sul runner.
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+
+      - name: Run tests
+        shell: pwsh
+        run: ./tools/run_tests.ps1

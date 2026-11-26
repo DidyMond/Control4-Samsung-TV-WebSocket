@@ -11,6 +11,18 @@
 	<driver>DriverWorks</driver>
 	<search_type>c4:av_gen</search_type>
 	<copyright>Copyright 2026 Davide Dimo. Released under the MIT License.</copyright>
+	<events>
+		<event>
+			<id>1</id>
+			<name>APP_OPENED</name>
+			<description>An app launched by the driver came to the foreground (variable LAST_APP)</description>
+		</event>
+		<event>
+			<id>2</id>
+			<name>APP_CLOSED</name>
+			<description>The app left the foreground or the TV turned off (variable LAST_APP)</description>
+		</event>
+	</events>
 	<config>
 		<properties>
 			<property>

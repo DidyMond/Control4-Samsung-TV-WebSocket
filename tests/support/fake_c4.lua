@@ -106,6 +106,9 @@ function F.install()
 		addresses = {},  -- binding -> host (GetBindingAddress)
 		errorlog = {},
 		printed = {},
+		variables = {},  -- nome -> valore (AddVariable / SetVariable)
+		added = {},      -- nomi delle variabili create, nell'ordine
+		events = {},     -- eventi lanciati con FireEvent, nell'ordine
 	}
 
 	Properties = {
@@ -163,6 +166,15 @@ function F.install()
 		table.insert(env.sent[binding], data)
 	end
 	function C4:ErrorLog(line) env.errorlog[#env.errorlog + 1] = line end
+	function C4:AddVariable(name, value, varType)
+		env.added[#env.added + 1] = name
+		env.variables[name] = value
+	end
+	function C4:SetVariable(name, value) env.variables[name] = value end
+	function C4:FireEvent(name)
+		-- l'evento vede le variabili come sono nel momento in cui scatta
+		env.events[#env.events + 1] = { name = name, current = env.variables.CURRENT_APP, last = env.variables.LAST_APP }
+	end
 
 	-- ---- helper per i test ----
 

@@ -43,6 +43,7 @@ function OnDriverInit()
 	safe("OnDriverInit", function()
 		apply_log_properties()
 		log.info("LIFECYCLE", "OnDriverInit")
+		tv.init_variables() -- le variabili vanno create in OnDriverInit
 		tv.refresh_pairing_status()
 	end)
 end

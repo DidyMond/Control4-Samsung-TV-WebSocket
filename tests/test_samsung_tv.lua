@@ -411,7 +411,7 @@ t.test("launch_app: POST HTTPS sulla 8002 con l'id dell'app, poi binding liberat
 	env.deliver_data(6098, "HTTP/1.1 200 OK\r\n\r\n")
 	t.eq(env.disconnects[#env.disconnects].binding, 6098)
 	t.falsy(require("lib.net").is_registered(6098))
-	t.eq(env.pending_timers(), 0, "il timer di timeout e' stato cancellato")
+	t.eq(env.pending_timers(), 1, "resta solo il controllo dell'app in primo piano")
 end)
 
 t.test("launch_app: app sconosciuta, IP mancante, risposta d'errore, timeout, connessione rifiutata", function()
@@ -544,6 +544,178 @@ t.test("app_status_all: interroga le 10 app una dopo l'altra e va avanti anche d
 		t.eq(asked[index], protocol.APP_IDS[name], name)
 	end
 	t.contains(logged(env), "status of all apps read")
+end)
+
+-- ------------------------------------------------------------
+-- App in primo piano: variabili ed eventi
+-- ------------------------------------------------------------
+local function app_body(running, visible)
+	return 'HTTP/1.1 200 OK\r\n\r\n{"id":"1","name":"X","running":' .. tostring(running)
+		.. ',"visible":' .. tostring(visible) .. "}"
+end
+
+-- Lancia l'app (risposta 200 della TV) e poi risponde ai controlli successivi
+local function launch(env, tv, appName)
+	tv.launch_app(appName)
+	env.deliver_status(6098, "ONLINE")
+	env.deliver_data(6098, "HTTP/1.1 200 OK\r\n\r\n")
+end
+
+-- Fa scattare il controllo successivo (3 s) e risponde con lo stato indicato
+-- (body = nil: nessuna risposta, la TV chiude la connessione).
+local function tick(env, body)
+	env.advance(3000)
+	env.deliver_status(6098, "ONLINE")
+	if body then
+		env.deliver_data(6098, body)
+		env.advance(200)
+	else
+		env.deliver_status(6098, "OFFLINE")
+	end
+end
+
+local function event_names(env)
+	local names = {}
+	for _, e in ipairs(env.events) do names[#names + 1] = e.name end
+	return names
+end
+
+t.test("init_variables: CURRENT_APP e LAST_APP vuote", function()
+	local env, tv = setup()
+	tv.init_variables()
+	t.same(env.added, { "CURRENT_APP", "LAST_APP" })
+	t.eq(env.variables.CURRENT_APP, "")
+	t.eq(env.variables.LAST_APP, "")
+end)
+
+t.test("app in primo piano: APP_OPENED poi APP_CLOSED, con le variabili aggiornate prima dell'evento", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	t.same(event_names(env), {}, "nessun evento finche' non e' in primo piano")
+
+	tick(env, app_body(true, false)) -- sta ancora partendo
+	t.same(event_names(env), {})
+	tick(env, app_body(true, true))
+	t.same(event_names(env), { "APP_OPENED" })
+	t.eq(env.events[1].current, "Plex")
+	t.eq(env.events[1].last, "Plex")
+	t.eq(env.variables.CURRENT_APP, "Plex")
+
+	tick(env, app_body(true, true)) -- ancora in primo piano: nessun evento nuovo
+	t.same(event_names(env), { "APP_OPENED" })
+
+	tick(env, app_body(true, false)) -- uscito con il telecomando: running resta true
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.eq(env.events[2].current, "", "CURRENT_APP gia' vuota quando scatta APP_CLOSED")
+	t.eq(env.events[2].last, "Plex", "LAST_APP dice quale app e' uscita")
+	t.eq(env.pending_timers(), 0, "il controllo si e' fermato")
+	local requests = count_connects(env, 6098)
+	env.advance(10000)
+	t.eq(count_connects(env, 6098), requests, "nessuna richiesta di stato dopo l'uscita")
+	t.eq(#env.events, 2)
+end)
+
+t.test("app che non arriva in primo piano entro 30 s: nessun evento e il controllo si ferma", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	for _ = 1, 12 do tick(env, app_body(true, false)) end
+	t.same(event_names(env), {})
+	t.contains(logged(env), "did not come to the foreground")
+end)
+
+t.test("app non installata (404): controllo fermato senza eventi", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "DAZN")
+	tick(env, 'HTTP/1.1 404 Not Found\r\n\r\n{"code":404}')
+	t.same(event_names(env), {})
+	t.contains(logged(env), "'DAZN' is not available on the TV (HTTP 404)")
+end)
+
+t.test("TV che non risponde 3 volte di fila: l'app aperta si da' per uscita", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+	t.same(event_names(env), { "APP_OPENED" })
+	tick(env, nil)
+	tick(env, nil)
+	t.same(event_names(env), { "APP_OPENED" }, "due risposte mancate non bastano")
+	tick(env, nil)
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+end)
+
+t.test("una risposta mancata isolata non chiude l'app", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+	tick(env, nil)
+	tick(env, app_body(true, true))
+	tick(env, nil)
+	tick(env, nil)
+	t.same(event_names(env), { "APP_OPENED" })
+end)
+
+t.test("TV che si spegne con l'app aperta: APP_CLOSED", function()
+	local env, tv = setup()
+	tv.init_variables()
+	run_check(env, tv, ON_BODY)
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+	t.same(event_names(env), { "APP_OPENED" })
+	run_check(env, tv, STANDBY_BODY)
+	run_check(env, tv, STANDBY_BODY) -- due letture OFF consecutive
+	t.eq(tv.power(), "OFF")
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.eq(env.variables.CURRENT_APP, "")
+end)
+
+t.test("lancio di un'altra app: la precedente, se era in primo piano, e' chiusa", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+	launch(env, tv, "Netflix")
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.eq(env.events[2].last, "Plex")
+	tick(env, app_body(true, true))
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED", "APP_OPENED" })
+	t.eq(env.variables.CURRENT_APP, "Netflix")
+end)
+
+t.test("lancio con errore HTTP (>= 400): nessun controllo dell'app", function()
+	local env, tv = setup()
+	tv.init_variables()
+	tv.launch_app("Plex")
+	env.deliver_status(6098, "ONLINE")
+	env.deliver_data(6098, "HTTP/1.1 500 Internal Server Error\r\n\r\n")
+	t.eq(env.pending_timers(), 0)
+end)
+
+t.test("scambi HTTPS: un nuovo scambio non viene chiuso dal timer del precedente", function()
+	local env, tv = setup()
+	tv.launch_app("YouTube")
+	env.deliver_status(6098, "ONLINE") -- timer di timeout del primo armato
+	env.advance(2000)
+	tv.launch_app("Netflix")           -- sostituisce il primo
+	env.advance(3500)                  -- qui il timer del primo sarebbe scattato
+	t.truthy(require("lib.net").is_registered(6098), "il secondo scambio e' ancora attivo")
+	env.deliver_status(6098, "ONLINE")
+	t.contains(env.last_sent(6098), "applications/3201907018807")
+end)
+
+t.test("shutdown con un'app controllata: nessun timer e nessun evento", function()
+	local env, tv = setup()
+	tv.init_variables()
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+	local events = #env.events
+	tv.shutdown()
+	t.eq(env.pending_timers(), 0)
+	t.eq(#env.events, events)
 end)
 
 -- ------------------------------------------------------------

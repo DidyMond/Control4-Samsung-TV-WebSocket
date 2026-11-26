@@ -32,6 +32,12 @@ local APP_TIMEOUT_MS = 5000
 local WS_CONNECT_TIMEOUT_MS = 15000
 local PAIRING_WINDOW_MS = 60000
 
+-- Dopo il lancio di un'app la si controlla ogni 3 s per sapere quando passa
+-- in primo piano e quando ne esce (visible = false, running resta true).
+local WATCH_INTERVAL_MS = 3000
+local WATCH_GRACE_S = 30    -- tempo concesso all'app per arrivare in primo piano
+local WATCH_MAX_MISSES = 3  -- risposte mancate di fila prima di darla per uscita
+
 -- Una lettura "OFF" isolata (timeout, connessione rifiutata) non basta a
 -- dichiarare spenta una TV accesa: un blip di rete accenderebbe le luci del
 -- percorso notturno. Servono due letture OFF consecutive per ON -> OFF.
@@ -72,6 +78,9 @@ local conn = {
 
 local queue = {}
 local pump_timer = nil
+
+local foreground = nil -- app sotto controllo: { app, opened, since, misses, timer }
+local stop_watch -- dichiarata sotto, serve a apply_reading
 
 -- Orologio in secondi (sostituibile nei test: il tempo simulato non sposta os.time)
 local now = os.time
@@ -178,6 +187,7 @@ local function apply_reading(body)
 		local first = (power == "UNKNOWN")
 		power = reading
 		log.info("REST", "state -> " .. power)
+		if power == "OFF" then stop_watch() end
 		if first then
 			-- al primo check (avvio del driver) si sincronizza lo stato senza
 			-- notificarlo: niente eventi fantasma Power On / Power Off
@@ -482,10 +492,13 @@ end
 --                    attende questo silenzio per riunire la risposta a pezzi
 --   opts.on_response(data), opts.on_timeout(), opts.on_refused()
 -- ------------------------------------------------------------
+local active_exchange = nil
+
 local function https_exchange(host, opts)
 	local done = false
 	local timers = {}
 	local buffer = ""
+	local handle = {}
 
 	local function release()
 		net.unregister(APP_BINDING)
@@ -493,11 +506,29 @@ local function https_exchange(host, opts)
 		C4:SetBindingAddress(APP_BINDING, "")
 	end
 
+	local function stop_timers()
+		for _, t in ipairs(timers) do t:cancel() end
+		timers = {}
+	end
+
 	local function finish()
 		done = true
-		for _, t in ipairs(timers) do t:cancel() end
+		stop_timers()
+		if active_exchange == handle then active_exchange = nil end
 		release()
 	end
+
+	-- Un nuovo scambio sostituisce quello in corso: senza chiuderlo, il timer del
+	-- vecchio potrebbe scattare in mezzo al nuovo e liberargli il binding.
+	function handle.abort()
+		if done then return end
+		done = true
+		stop_timers()
+		if opts.on_aborted then opts.on_aborted() end
+	end
+
+	if active_exchange then active_exchange.abort() end
+	active_exchange = handle
 
 	-- pulizia preventiva del binding (uno scambio precedente ancora aperto)
 	release()
@@ -575,7 +606,11 @@ function M.launch_app(appName)
 				log.warn("APP", "TV answered HTTP " .. code .. " launching '" .. appName .. "'")
 			else
 				log.debug("APP", "launch response received (HTTP " .. tostring(code) .. ")")
+				M.watch_app(appName)
 			end
+		end,
+		on_aborted = function()
+			log.debug("APP", "launch of '" .. appName .. "' superseded by another HTTPS request")
 		end,
 		on_timeout = function()
 			log.warn("APP", "launch of '" .. appName .. "' timed out")
@@ -616,6 +651,9 @@ function M.app_status(appName, onResult)
 			log.debug("APP", "status body: " .. (data:match("\r\n\r\n(.*)$") or data):sub(1, 300))
 			if onResult then onResult(state, code) end
 		end,
+		on_aborted = function()
+			if onResult then onResult(nil) end
+		end,
 		on_timeout = function()
 			log.warn("APP", "status query of '" .. appName .. "' timed out")
 			if onResult then onResult(nil) end
@@ -640,6 +678,82 @@ function M.app_status_all()
 		if not started then step(index + 1) end
 	end
 	step(1)
+end
+
+-- ------------------------------------------------------------
+-- App in primo piano: variabili ed eventi per le programmazioni
+--   variabili  CURRENT_APP (app in primo piano o vuota), LAST_APP (app dell'ultimo evento)
+--   eventi     APP_OPENED, APP_CLOSED
+-- Si controlla solo l'app lanciata dal driver (tile o LAUNCH_APP): sapere quale
+-- app e' aperta, se la si apre col telecomando, richiederebbe di interrogarle tutte.
+-- ------------------------------------------------------------
+function M.init_variables()
+	C4:AddVariable("CURRENT_APP", "", "STRING")
+	C4:AddVariable("LAST_APP", "", "STRING")
+end
+
+local function announce(event, appName)
+	C4:SetVariable("LAST_APP", appName)
+	C4:SetVariable("CURRENT_APP", event == "APP_OPENED" and appName or "")
+	log.info("APP", event .. " -> " .. appName)
+	C4:FireEvent(event)
+end
+
+-- Smette di controllare l'app; se era in primo piano annuncia che e' uscita.
+function stop_watch()
+	local w = foreground
+	if not w then return end
+	foreground = nil
+	w.timer = cancel(w.timer)
+	if w.opened then announce("APP_CLOSED", w.app) end
+end
+
+local function watch_tick(w)
+	if foreground ~= w then return end
+	w.timer = nil
+
+	M.app_status(w.app, function(state, code)
+		if foreground ~= w then return end
+
+		local gone = false
+		if state == nil then
+			w.misses = w.misses + 1
+			gone = (w.misses >= WATCH_MAX_MISSES)
+		elseif code ~= 200 then
+			log.warn("APP", "'" .. w.app .. "' is not available on the TV (HTTP " .. tostring(code) .. ")")
+			gone = true
+		else
+			w.misses = 0
+			if state.visible == true then
+				if not w.opened then
+					w.opened = true
+					announce("APP_OPENED", w.app)
+				end
+			elseif state.visible == false then
+				if w.opened then
+					gone = true
+				elseif (now() - w.since) > WATCH_GRACE_S then
+					log.warn("APP", "'" .. w.app .. "' did not come to the foreground, no longer watched")
+					gone = true
+				end
+			end
+		end
+
+		if gone then
+			stop_watch()
+		else
+			w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)
+		end
+	end)
+end
+
+-- Da chiamare dopo un lancio riuscito. Un nuovo lancio sostituisce il controllo
+-- precedente (e, se quell'app era in primo piano, la dichiara chiusa).
+function M.watch_app(appName)
+	stop_watch()
+	local w = { app = appName, opened = false, since = now(), misses = 0 }
+	foreground = w
+	w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)
 end
 
 -- Se la TV e' accesa lancia subito; altrimenti aspetta che il REST confermi
@@ -680,6 +794,11 @@ function M.shutdown()
 	cancel_rest_timers()
 	rest.busy = false
 	rest.gen = rest.gen + 1
+	if foreground then
+		foreground.timer = cancel(foreground.timer)
+		foreground = nil -- niente eventi durante lo spegnimento del driver
+	end
+	if active_exchange then active_exchange.abort() end
 	release_rest_binding()
 	end_pairing()
 	drop_ws()

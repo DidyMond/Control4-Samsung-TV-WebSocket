@@ -68,12 +68,12 @@ t.test("MiniApp: tile -> lancio quando la TV e' accesa; doppione di Director ent
 	t.eq(#calls, 3)
 end)
 
-t.test("tutti e 9 gli slot MiniApp lanciano un'app", function()
+t.test("tutti e 10 gli slot MiniApp lanciano un'app", function()
 	local _, commands, calls = setup()
-	for slot = 3201, 3209 do
+	for slot = 3201, 3210 do
 		commands.handle_proxy(5002, "SET_INPUT", { INPUT = tostring(slot) })
 	end
-	t.eq(#calls, 9)
+	t.eq(#calls, 10)
 end)
 
 t.test("PASSTHROUGH: EJECT chiude l'app, comandi sconosciuti ignorati", function()

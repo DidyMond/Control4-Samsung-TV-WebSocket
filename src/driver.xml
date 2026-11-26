@@ -114,7 +114,7 @@
 			</command>
 			<command>
 				<name>LAUNCH_APP</name>
-				<description>Launch a TV app by name (Netflix, YouTube, Prime Video, Disney+, Apple TV, Spotify, DAZN, RaiPlay, Paramount+)</description>
+				<description>Launch a TV app by name (Netflix, YouTube, Prime Video, Disney+, Apple TV, Spotify, DAZN, RaiPlay, Paramount+, Plex)</description>
 				<params>
 					<param>
 						<name>AppName</name>
@@ -450,6 +450,18 @@ Full guide (IT/EN): www/documentation.rtf and https://github.com/DidyMond/Contro
 			<id>3209</id>
 			<type>5</type>
 			<connectionname>MiniApp 9</connectionname>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3210</id>
+			<type>5</type>
+			<connectionname>MiniApp 10</connectionname>
 			<consumer>True</consumer>
 			<linelevel>False</linelevel>
 			<classes>

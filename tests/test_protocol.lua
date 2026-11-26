@@ -64,7 +64,7 @@ t.test("ogni MiniApp e' lanciabile (ha un id applicazione)", function()
 		t.truthy(protocol.APP_IDS[app], "slot " .. slot .. " -> " .. app .. " senza id")
 		n = n + 1
 	end
-	t.eq(n, 9)
+	t.eq(n, 10)
 end)
 
 t.test("is_housekeeping: routing sempre; ON/OFF solo sulla avswitch", function()

@@ -169,6 +169,7 @@ M.MINI_APP_MAP = {
 	["3207"] = "DAZN",
 	["3208"] = "RaiPlay",
 	["3209"] = "Paramount+",
+	["3210"] = "Plex",
 }
 
 -- Nome dell'app -> id applicazione Tizen (POST /api/v2/applications/<id>)
@@ -182,6 +183,7 @@ M.APP_IDS = {
 	["DAZN"] = "3201806016390",
 	["RaiPlay"] = "111399002034",
 	["Paramount+"] = "3202110025305",
+	["Plex"] = "3201512006963",
 }
 
 -- Comandi di routing/stato AV che Director manda di continuo e che non

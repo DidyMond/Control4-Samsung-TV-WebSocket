@@ -188,7 +188,7 @@ Per far comparire la TV nella stanza (Watch experience), oltre al proxy TV (5000
 - capability `reports_offline = true`, `power_management_method = ToggleCode`.
 
 La proxy `avswitch` (5002) ha connessioni "ponte" nascoste con autobind (1102/3101 lato TV, 2110/4110 lato
-switch) e **9 slot MiniApp** (3201–3209, classe `RF_MINI_APP`) per i minidriver ufficiali. ON/OFF su 5002 sono
+switch) e **10 slot MiniApp** (3201–3210, classe `RF_MINI_APP`) per i minidriver ufficiali. ON/OFF su 5002 sono
 routing e non diventano `KEY_POWER` (spegnevano la TV alla pressione di una tile).
 
 `tests/test_driver_xml.lua` verifica che ogni proprietà usata dal Lua, ogni HDMI e ogni slot MiniApp mappati

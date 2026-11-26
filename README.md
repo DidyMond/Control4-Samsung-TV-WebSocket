@@ -39,8 +39,8 @@ nella Watch experience del Navigator.
 - **ON/OFF consapevoli dello stato**: nessun toggle indesiderato se la TV è già nello stato richiesto.
 - **Telecomando completo**: volume e canali con ripetizione alla pressione prolungata, mute, numeri,
   navigazione, trasporto, tasti colore, ingressi HDMI 1–3.
-- **Watch experience**: 9 slot **MiniApp** (Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN,
-  RaiPlay, Paramount+) per i minidriver ufficiali Control4; se la TV è spenta il driver attende l'accensione
+- **Watch experience**: 10 slot **MiniApp** (Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN,
+  RaiPlay, Paramount+, Plex) per i minidriver ufficiali Control4; se la TV è spenta il driver attende l'accensione
   e poi lancia l'app. Il tastierino a schermo del Navigator funziona con l'app aperta.
 - **Pairing una tantum**: un popup sulla TV, poi connessioni silenziose. Il token è salvato nel progetto e
   **non compare mai nei log**.
@@ -63,7 +63,7 @@ nella Watch experience del Navigator.
 4. **Pairing**: imposta `Pairing` = `Pair with TV` e conferma il popup sulla TV entro 60 secondi.
    `Pairing Status` diventa `Paired`.
 5. **Binding**: collega la TV alla stanza (proxy *Samsung TV*, ingressi HDMI e audio). Per la Watch experience
-   collega i minidriver ufficiali Control4 agli slot **MiniApp 1–9** del driver (proxy *Samsung App Switcher*).
+   collega i minidriver ufficiali Control4 agli slot **MiniApp 1–10** del driver (proxy *Samsung App Switcher*).
 6. **Automazioni**: in Programming usa gli eventi *Power On* / *Power Off* della TV e i comandi `SEND_KEY` /
    `LAUNCH_APP`.
 
@@ -72,9 +72,9 @@ nella Watch experience del Navigator.
 | Comando | Parametro | Esempio |
 |---|---|---|
 | `SEND_KEY` | `KeyCode` — codice tasto Samsung (`KEY_*`) | `KEY_HOME`, `KEY_HDMI1`, `KEY_MENU` |
-| `LAUNCH_APP` | `AppName` | `Netflix`, `YouTube`, `Prime Video`, `Disney+`, `Apple TV`, `Spotify`, `DAZN`, `RaiPlay`, `Paramount+` |
+| `LAUNCH_APP` | `AppName` | `Netflix`, `YouTube`, `Prime Video`, `Disney+`, `Apple TV`, `Spotify`, `DAZN`, `RaiPlay`, `Paramount+`, `Plex` |
 
-Slot MiniApp, nell'ordine: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+.
+Slot MiniApp, nell'ordine: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+, Plex.
 
 ### Proprietà
 
@@ -159,8 +159,8 @@ tiles in the Navigator's Watch experience.
 - **State-aware ON/OFF**: no unwanted toggle if the TV is already in the requested state.
 - **Full remote**: volume and channels repeat while a button is held, mute, numbers, navigation, transport,
   colour keys, HDMI 1–3 inputs.
-- **Watch experience**: 9 **MiniApp** slots (Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN,
-  RaiPlay, Paramount+) for the official Control4 minidrivers; if the TV is off, the driver waits for it to turn
+- **Watch experience**: 10 **MiniApp** slots (Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN,
+  RaiPlay, Paramount+, Plex) for the official Control4 minidrivers; if the TV is off, the driver waits for it to turn
   on and then launches the app. The Navigator's on-screen keypad works with the app open.
 - **One-time pairing**: one popup on the TV, then silent connections. The token is stored in the project and
   **never appears in the logs**.
@@ -182,7 +182,7 @@ tiles in the Navigator's Watch experience.
 4. **Pairing**: set `Pairing` = `Pair with TV` and accept the popup on the TV within 60 seconds.
    `Pairing Status` becomes `Paired`.
 5. **Bindings**: connect the TV to the room (*Samsung TV* proxy, HDMI and audio inputs). For the Watch
-   experience, bind the official Control4 minidrivers to the driver's **MiniApp 1–9** slots (*Samsung App
+   experience, bind the official Control4 minidrivers to the driver's **MiniApp 1–10** slots (*Samsung App
    Switcher* proxy).
 6. **Automations**: in Programming use the TV's *Power On* / *Power Off* events and the `SEND_KEY` /
    `LAUNCH_APP` commands.
@@ -192,9 +192,9 @@ tiles in the Navigator's Watch experience.
 | Command | Parameter | Example |
 |---|---|---|
 | `SEND_KEY` | `KeyCode` — Samsung key code (`KEY_*`) | `KEY_HOME`, `KEY_HDMI1`, `KEY_MENU` |
-| `LAUNCH_APP` | `AppName` | `Netflix`, `YouTube`, `Prime Video`, `Disney+`, `Apple TV`, `Spotify`, `DAZN`, `RaiPlay`, `Paramount+` |
+| `LAUNCH_APP` | `AppName` | `Netflix`, `YouTube`, `Prime Video`, `Disney+`, `Apple TV`, `Spotify`, `DAZN`, `RaiPlay`, `Paramount+`, `Plex` |
 
-MiniApp slots, in order: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+.
+MiniApp slots, in order: Netflix, YouTube, Prime Video, Disney+, Spotify, Apple TV, DAZN, RaiPlay, Paramount+, Plex.
 
 ### Properties
 

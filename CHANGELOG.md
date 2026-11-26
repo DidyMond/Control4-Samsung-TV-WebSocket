@@ -9,6 +9,8 @@ number.
 
 ## [Unreleased]
 
+## [v261126006] - 2026-11-26
+
 ### Added
 - **Events `APP_OPENED` / `APP_CLOSED` and variables `CURRENT_APP` / `LAST_APP`** for Composer Programming. After
   an app is launched (tile or `LAUNCH_APP`) the driver reads its state from the TV every 3 s: `visible` turning
@@ -27,6 +29,10 @@ number.
 ### Fixed
 - Two HTTPS requests to the TV in quick succession shared one network binding, and the timer of the first could
   release the binding of the second. Only one request is active at a time now.
+
+### Updating
+- Update the driver in Composer: the new events, variables and properties appear on their own and no binding has
+  to be redone. **Reset Room Source On App Exit** is `On` by default, **Room Off When TV Turns Off** is `Off`.
 
 ## [v261126002] - 2026-11-26
 
@@ -91,6 +97,7 @@ First public release.
 - Other TV models and Control4 OS versions are not verified.
 - No Wake-on-LAN: a TV that has lost power cannot be turned on over the network.
 
-[Unreleased]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126002...HEAD
+[Unreleased]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126006...HEAD
+[v261126006]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126002...v261126006
 [v261126002]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261021001...v261126002
 [v261021001]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/releases/tag/v261021001

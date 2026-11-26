@@ -114,6 +114,16 @@ t.test("comandi SEND_KEY e LAUNCH_APP con i parametri letti da commands.lua", fu
 	t.contains(commands, "params.AppName")
 end)
 
+t.test("eventi APP_OPENED / APP_CLOSED dichiarati nell'XML e lanciati dal codice", function()
+	local code = read("src/tv/samsung_tv.lua")
+	for _, name in ipairs({ "APP_OPENED", "APP_CLOSED" }) do
+		t.truthy(xml:find("<event>%s*<id>%d+</id>%s*<name>" .. name .. "</name>"), name .. " manca nell'XML")
+		t.contains(code, '"' .. name .. '"')
+	end
+	t.contains(code, 'C4:AddVariable("CURRENT_APP"')
+	t.contains(code, 'C4:AddVariable("LAST_APP"')
+end)
+
 t.test("la guida RTF del driver esiste ed e' un RTF valido", function()
 	t.contains(xml, '<documentation file="www/documentation.rtf">')
 	local rtf = read("src/www/documentation.rtf")

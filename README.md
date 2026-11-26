@@ -46,6 +46,11 @@ nella Watch experience del Navigator.
 - **Pairing una tantum**: un popup sulla TV, poi connessioni silenziose. Il token è salvato nel progetto e
   **non compare mai nei log**.
 - **Comandi per Composer Programming**: `SEND_KEY` (qualunque tasto Samsung) e `LAUNCH_APP`.
+- **Eventi e variabili per le automazioni**: `APP_OPENED` e `APP_CLOSED` quando un'app lanciata da Control4
+  va in primo piano o ne esce, con le variabili `CURRENT_APP` e `LAST_APP` (per esempio: abbassa le luci quando
+  parte Plex, riaccendile quando si esce).
+- **Control4 allineato alla TV**: se esci da un'app con il telecomando la stanza torna sulla TV e la tile
+  funziona di nuovo. Opzionale: la stanza si spegne insieme alla TV.
 - **Robusto**: coda comandi con scadenza (niente tasti "in ritardo"), watchdog sul polling, isolamento degli
   errori in ogni callback, ripetizione dei tasti con limite di sicurezza.
 - Nessun cloud, nessuna licenza, Lua **non cifrato**, log con tag e livelli.
@@ -81,6 +86,12 @@ nella Watch experience del Navigator.
 minidriver c'è collegato: se colleghi, per esempio, il minidriver di Plex allo slot 4, imposta `MiniApp 4 App` =
 `Plex`. `Not used` disattiva lo slot.
 
+**Eventi e variabili.** Dopo il lancio di un'app (tile o `LAUNCH_APP`) il driver ne controlla lo stato ogni
+3 secondi: quando passa in primo piano scatta l'evento **`APP_OPENED`**, quando ne esce **`APP_CLOSED`**
+(anche se la TV si spegne). La variabile `CURRENT_APP` contiene l'app in primo piano (vuota se nessuna) e
+`LAST_APP` quella dell'ultimo evento: serve nelle condizioni, perché a `APP_CLOSED` la `CURRENT_APP` è già
+vuota. Gli eventi riguardano le app lanciate da Control4.
+
 ### Proprietà
 
 | Proprietà | Significato |
@@ -92,6 +103,8 @@ minidriver c'è collegato: se colleghi, per esempio, il minidriver di Plex allo 
 | `Pairing Status` | `Paired` / `Not paired` (sola lettura) |
 | `Pairing` | `Pair with TV` avvia l'abbinamento, `Unpair` cancella il token |
 | `MiniApp 1 App` … `MiniApp 9 App` | App lanciata dallo slot (elenco delle app, oppure `Not used`); predefiniti come sopra |
+| `Reset Room Source On App Exit` | Quando un'app lanciata da una tile esce dal primo piano, riporta la sorgente della stanza alla TV, così la tile funziona di nuovo (predefinita `On`) |
+| `Room Off When TV Turns Off` | Spegne anche la stanza Control4 quando la TV si spegne col telecomando o col timer; attenzione alle programmazioni legate a *Room Off* (predefinita `Off`) |
 | `Log Level`, `Log Mode` | Dettaglio e destinazione dei log (predefiniti `3 - Info`, `Off`) |
 
 ### Risoluzione problemi
@@ -104,6 +117,11 @@ minidriver c'è collegato: se colleghi, per esempio, il minidriver di Plex allo 
   lo gestisce da solo, quindi controlla rete e IP.
 - **La sessione WebSocket si chiude dopo ~20 s**: è normale (limite del firmware). Il driver si riconnette al
   comando successivo, senza popup.
+- **Dopo essere uscito da un'app con il telecomando la tile non fa nulla**: Control4 invia la selezione di una
+  sorgente solo quando la sorgente cambia. Con `Reset Room Source On App Exit` = `On` il driver riporta la stanza
+  alla TV entro pochi secondi dall'uscita (nel log compare `[SYNC]`). Vale per le app lanciate da Control4.
+- **Sapere se un'app è installata**: dal campo Lua del driver, `ExecuteCommand("APP_STATUS_ALL", {})` scrive nel
+  log lo stato di ogni app (`HTTP 200` = installata, `404` = non installata o ID diverso su quel modello).
 - **Wake-on-LAN**: non serve. La TV resta in standby con la rete attiva e risponde ai comandi ON; se le si toglie
   corrente non si può riaccendere da rete.
 - **Per una segnalazione**: `Log Mode` = `Print`, `Log Level` = `5 - Debug`, e usa il
@@ -172,6 +190,11 @@ tiles in the Navigator's Watch experience.
 - **One-time pairing**: one popup on the TV, then silent connections. The token is stored in the project and
   **never appears in the logs**.
 - **Composer Programming commands**: `SEND_KEY` (any Samsung key) and `LAUNCH_APP`.
+- **Events and variables for automations**: `APP_OPENED` and `APP_CLOSED` when an app launched by Control4
+  comes to the foreground or leaves it, with the `CURRENT_APP` and `LAST_APP` variables (for example: dim the
+  lights when Plex starts, bring them back when you leave).
+- **Control4 kept in line with the TV**: if you leave an app with the remote, the room goes back to the TV and
+  the tile works again. Optional: the room also turns off with the TV.
 - **Robust**: command queue with expiry (no "late" keys), watchdog on the polling, error isolation in every
   callback, key repeat with a safety limit.
 - No cloud, no licensing, **unencrypted** Lua, logs with tags and levels.
@@ -206,6 +229,12 @@ tiles in the Navigator's Watch experience.
 minidriver is bound to it: if you bind, say, the Plex minidriver to slot 4, set `MiniApp 4 App` = `Plex`.
 `Not used` disables the slot.
 
+**Events and variables.** After an app is launched (tile or `LAUNCH_APP`) the driver checks its state every
+3 seconds: the **`APP_OPENED`** event fires when it comes to the foreground and **`APP_CLOSED`** when it
+leaves (also when the TV turns off). The `CURRENT_APP` variable holds the app in the foreground (empty if
+none) and `LAST_APP` the one of the last event: use it in conditions, since `CURRENT_APP` is already empty at
+`APP_CLOSED`. The events concern apps launched by Control4.
+
 ### Properties
 
 | Property | Meaning |
@@ -217,6 +246,8 @@ minidriver is bound to it: if you bind, say, the Plex minidriver to slot 4, set 
 | `Pairing Status` | `Paired` / `Not paired` (read-only) |
 | `Pairing` | `Pair with TV` starts pairing, `Unpair` deletes the token |
 | `MiniApp 1 App` … `MiniApp 9 App` | App launched by the slot (list of apps, or `Not used`); defaults as above |
+| `Reset Room Source On App Exit` | When an app launched from a tile leaves the foreground, sets the room source back to the TV so the tile works again (default `On`) |
+| `Room Off When TV Turns Off` | Also turns the Control4 room off when the TV is turned off with its remote or timer; mind any *Room Off* programming (default `Off`) |
 | `Log Level`, `Log Mode` | Log detail and destination (defaults `3 - Info`, `Off`) |
 
 ### Troubleshooting
@@ -229,6 +260,11 @@ minidriver is bound to it: if you bind, say, the Plex minidriver to slot 4, set 
   this by itself, so check network and IP.
 - **The WebSocket session closes after ~20 s**: this is normal (firmware limit). The driver reconnects on the
   next command, with no popup.
+- **After leaving an app with the remote the tile does nothing**: Control4 only sends a source selection when the
+  source changes. With `Reset Room Source On App Exit` = `On` the driver sets the room back to the TV within a few
+  seconds of the exit (a `[SYNC]` line shows in the log). It applies to apps launched by Control4.
+- **Checking whether an app is installed**: from the driver's Lua field, `ExecuteCommand("APP_STATUS_ALL", {})` writes
+  the state of every app to the log (`HTTP 200` = installed, `404` = not installed or a different ID on that model).
 - **Wake-on-LAN**: not needed. The TV stays in standby with the network active and answers ON commands; if
   power to the TV is cut it cannot be turned back on over the network.
 - **For a bug report**: `Log Mode` = `Print`, `Log Level` = `5 - Debug`, and use the

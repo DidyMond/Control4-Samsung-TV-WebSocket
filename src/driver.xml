@@ -5,12 +5,24 @@
 	<created>08/30/2026 11:19 AM</created>
 	<modified>10/21/2026 06:00 PM</modified>
 	<manufacturer>Samsung</manufacturer>
-	<version>261126002</version>
+	<version>261126006</version>
 	<control>lua_gen</control>
 	<controlmethod>ip</controlmethod>
 	<driver>DriverWorks</driver>
 	<search_type>c4:av_gen</search_type>
 	<copyright>Copyright 2026 Davide Dimo. Released under the MIT License.</copyright>
+	<events>
+		<event>
+			<id>1</id>
+			<name>APP_OPENED</name>
+			<description>An app launched by the driver came to the foreground (variable LAST_APP)</description>
+		</event>
+		<event>
+			<id>2</id>
+			<name>APP_CLOSED</name>
+			<description>The app left the foreground or the TV turned off (variable LAST_APP)</description>
+		</event>
+	</events>
 	<config>
 		<properties>
 			<property>
@@ -22,7 +34,7 @@
 				<name>Driver Version</name>
 				<type>STRING</type>
 				<readonly>true</readonly>
-				<default>261126002</default>
+				<default>261126006</default>
 			</property>
 			<property>
 				<name>-Connection</name>
@@ -251,6 +263,28 @@
 					<item>Paramount+</item>
 					<item>Plex</item>
 					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>Reset Room Source On App Exit</name>
+				<description>When an app launched from a MiniApp tile is closed with the TV remote, set the Control4 room source back to the TV so the tile works again</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>On</default>
+				<items>
+					<item>On</item>
+					<item>Off</item>
+				</items>
+			</property>
+			<property>
+				<name>Room Off When TV Turns Off</name>
+				<description>When the TV is turned off with its remote or by its own timer, also turn off the Control4 room that is using it</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Off</default>
+				<items>
+					<item>On</item>
+					<item>Off</item>
 				</items>
 			</property>
 			<property>

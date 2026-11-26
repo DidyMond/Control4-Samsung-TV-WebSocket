@@ -27,6 +27,12 @@ t.test("il driver espone tutti gli handler Director", function()
 	end
 end)
 
+t.test("OnDriverInit crea le variabili CURRENT_APP e LAST_APP", function()
+	local env = load_driver()
+	OnDriverInit()
+	t.same(env.added, { "CURRENT_APP", "LAST_APP" })
+end)
+
 t.test("avvio non abbinato: polling REST subito, nessun WebSocket, invito al pairing", function()
 	local env = load_driver()
 	OnDriverInit()

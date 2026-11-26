@@ -32,6 +32,12 @@ local APP_TIMEOUT_MS = 5000
 local WS_CONNECT_TIMEOUT_MS = 15000
 local PAIRING_WINDOW_MS = 60000
 
+-- Dopo il lancio di un'app la si controlla ogni 3 s per sapere quando passa
+-- in primo piano e quando ne esce (visible = false, running resta true).
+local WATCH_INTERVAL_MS = 3000
+local WATCH_GRACE_S = 30    -- tempo concesso all'app per arrivare in primo piano
+local WATCH_MAX_MISSES = 3  -- risposte mancate di fila prima di darla per uscita
+
 -- Una lettura "OFF" isolata (timeout, connessione rifiutata) non basta a
 -- dichiarare spenta una TV accesa: un blip di rete accenderebbe le luci del
 -- percorso notturno. Servono due letture OFF consecutive per ON -> OFF.
@@ -72,6 +78,10 @@ local conn = {
 
 local queue = {}
 local pump_timer = nil
+
+local foreground = nil -- app sotto controllo: { app, opened, since, misses, timer }
+local stop_watch -- stop_watch(motivo), dichiarata sotto: serve a apply_reading
+local room_off_with_tv -- dichiarata sotto: serve a apply_reading
 
 -- Orologio in secondi (sostituibile nei test: il tempo simulato non sposta os.time)
 local now = os.time
@@ -178,12 +188,14 @@ local function apply_reading(body)
 		local first = (power == "UNKNOWN")
 		power = reading
 		log.info("REST", "state -> " .. power)
+		if power == "OFF" then stop_watch("power_off") end
 		if first then
 			-- al primo check (avvio del driver) si sincronizza lo stato senza
 			-- notificarlo: niente eventi fantasma Power On / Power Off
 			log.info("REST", "initial state synchronised (no notification)")
 		else
 			C4:SendToProxy(protocol.TV_PROXY, power, {}, "NOTIFY")
+			if power == "OFF" then room_off_with_tv() end
 		end
 	end
 
@@ -476,6 +488,100 @@ function M.send_key(keyCode)
 end
 
 -- ------------------------------------------------------------
+-- HTTPS verso la TV (porta 8002, binding 6098): uno scambio per volta
+--   opts.request     richiesta HTTP completa
+--   opts.settle_ms   nil = la prima risposta chiude lo scambio; altrimenti si
+--                    attende questo silenzio per riunire la risposta a pezzi
+--   opts.on_response(data), opts.on_timeout(), opts.on_refused()
+-- ------------------------------------------------------------
+local active_exchange = nil
+
+local function https_exchange(host, opts)
+	local done = false
+	local timers = {}
+	local buffer = ""
+	local handle = {}
+
+	local function release()
+		net.unregister(APP_BINDING)
+		C4:NetDisconnect(APP_BINDING, APP_PORT)
+		C4:SetBindingAddress(APP_BINDING, "")
+	end
+
+	local function stop_timers()
+		for _, t in ipairs(timers) do t:cancel() end
+		timers = {}
+	end
+
+	local function finish()
+		done = true
+		stop_timers()
+		if active_exchange == handle then active_exchange = nil end
+		release()
+	end
+
+	-- Un nuovo scambio sostituisce quello in corso: senza chiuderlo, il timer del
+	-- vecchio potrebbe scattare in mezzo al nuovo e liberargli il binding.
+	function handle.abort()
+		if done then return end
+		done = true
+		stop_timers()
+		if opts.on_aborted then opts.on_aborted() end
+	end
+
+	if active_exchange then active_exchange.abort() end
+	active_exchange = handle
+
+	-- pulizia preventiva del binding (uno scambio precedente ancora aperto)
+	release()
+
+	net.register(APP_BINDING,
+		function(_, _, status)
+			if done then return end
+			if status == "ONLINE" then
+				C4:SendToNetwork(APP_BINDING, APP_PORT, opts.request)
+				timers[#timers + 1] = timer.after(APP_TIMEOUT_MS, function()
+					if not done then
+						finish()
+						opts.on_timeout()
+					end
+				end)
+			elseif status == "OFFLINE" then
+				local received = buffer
+				finish()
+				if received ~= "" then
+					opts.on_response(received) -- la TV ha chiuso dopo aver risposto
+				else
+					opts.on_refused()
+				end
+			end
+		end,
+		function(_, _, data)
+			if done then return end
+			if not opts.settle_ms then
+				finish()
+				opts.on_response(data)
+				return
+			end
+			local first = (buffer == "")
+			buffer = buffer .. data
+			if first then
+				timers[#timers + 1] = timer.after(opts.settle_ms, function()
+					if not done then
+						local received = buffer
+						finish()
+						opts.on_response(received)
+					end
+				end)
+			end
+		end)
+
+	C4:CreateNetworkConnection(APP_BINDING, host, "SSL")
+	C4:NetPortOptions(APP_BINDING, APP_PORT, "SSL", SSL_OPTIONS)
+	C4:NetConnect(APP_BINDING, APP_PORT)
+end
+
+-- ------------------------------------------------------------
 -- Lancio applicazioni: POST https://<ip>:8002/api/v2/applications/<id>
 -- ------------------------------------------------------------
 function M.launch_app(appName)
@@ -492,56 +598,243 @@ function M.launch_app(appName)
 
 	log.info("APP", "launching '" .. appName .. "' (id=" .. appId .. ")")
 
-	local done = false
-	local guard
-
-	local function finish()
-		done = true
-		if guard then guard:cancel() end
-		net.unregister(APP_BINDING)
-		C4:NetDisconnect(APP_BINDING, APP_PORT)
-		C4:SetBindingAddress(APP_BINDING, "")
-	end
-
-	-- pulizia preventiva del binding (un lancio precedente ancora aperto)
-	net.unregister(APP_BINDING)
-	C4:NetDisconnect(APP_BINDING, APP_PORT)
-	C4:SetBindingAddress(APP_BINDING, "")
-
-	net.register(APP_BINDING,
-		function(_, _, status)
-			if done then return end
-			if status == "ONLINE" then
-				C4:SendToNetwork(APP_BINDING, APP_PORT,
-					"POST /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
-					"Host: " .. host .. ":" .. APP_PORT .. "\r\n" ..
-					"Content-Length: 0\r\nConnection: close\r\n\r\n")
-				guard = timer.after(APP_TIMEOUT_MS, function()
-					if not done then
-						log.warn("APP", "launch of '" .. appName .. "' timed out")
-						finish()
-					end
-				end)
-			elseif status == "OFFLINE" then
-				log.warn("APP", "HTTPS connection refused (app launch)")
-				finish()
-			end
-		end,
-		function(_, _, data)
-			if done then return end
+	https_exchange(host, {
+		request = "POST /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
+			"Host: " .. host .. ":" .. APP_PORT .. "\r\n" ..
+			"Content-Length: 0\r\nConnection: close\r\n\r\n",
+		on_response = function(data)
 			local code = protocol.http_status(data)
 			if code and code >= 400 then
 				log.warn("APP", "TV answered HTTP " .. code .. " launching '" .. appName .. "'")
 			else
 				log.debug("APP", "launch response received (HTTP " .. tostring(code) .. ")")
+				M.watch_app(appName)
 			end
-			finish()
-		end)
-
-	C4:CreateNetworkConnection(APP_BINDING, host, "SSL")
-	C4:NetPortOptions(APP_BINDING, APP_PORT, "SSL", SSL_OPTIONS)
-	C4:NetConnect(APP_BINDING, APP_PORT)
+		end,
+		on_aborted = function()
+			log.debug("APP", "launch of '" .. appName .. "' superseded by another HTTPS request")
+		end,
+		on_timeout = function()
+			log.warn("APP", "launch of '" .. appName .. "' timed out")
+		end,
+		on_refused = function()
+			log.warn("APP", "HTTPS connection refused (app launch)")
+		end,
+	})
 	return true
+end
+
+-- Stato di un'app sulla TV: GET /api/v2/applications/<id>. Diagnostica per
+-- capire se la TV dice quando si esce da un'app. `onResult(state, code)` e'
+-- chiamata sempre; `state` e' nil se la TV non ha risposto.
+function M.app_status(appName, onResult)
+	local appId = protocol.APP_IDS[appName]
+	if not appId then
+		log.warn("APP", "app '" .. tostring(appName) .. "' not mapped")
+		if onResult then onResult(nil) end
+		return false
+	end
+	local host = get_ip()
+	if not host then
+		log.warn("APP", "IP Address not set, cannot query app")
+		if onResult then onResult(nil) end
+		return false
+	end
+
+	https_exchange(host, {
+		request = "GET /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
+			"Host: " .. host .. ":" .. APP_PORT .. "\r\nConnection: close\r\n\r\n",
+		settle_ms = REST_SETTLE_MS,
+		on_response = function(data)
+			local code = protocol.http_status(data)
+			local state = protocol.parse_app_state(data)
+			log.info("APP", "status of '" .. appName .. "': HTTP " .. tostring(code) ..
+				" running=" .. tostring(state.running) .. " visible=" .. tostring(state.visible))
+			log.debug("APP", "status body: " .. (data:match("\r\n\r\n(.*)$") or data):sub(1, 300))
+			if onResult then onResult(state, code) end
+		end,
+		on_aborted = function()
+			if onResult then onResult(nil) end
+		end,
+		on_timeout = function()
+			log.warn("APP", "status query of '" .. appName .. "' timed out")
+			if onResult then onResult(nil) end
+		end,
+		on_refused = function()
+			log.warn("APP", "HTTPS connection refused (status query)")
+			if onResult then onResult(nil) end
+		end,
+	})
+	return true
+end
+
+-- Stato di tutte le app note, una dopo l'altra (il binding e' uno solo).
+function M.app_status_all()
+	local names = protocol.APP_NAMES
+	local function step(index)
+		if index > #names then
+			log.info("APP", "status of all apps read")
+			return
+		end
+		local started = M.app_status(names[index], function() step(index + 1) end)
+		if not started then step(index + 1) end
+	end
+	step(1)
+end
+
+-- ------------------------------------------------------------
+-- App in primo piano: variabili ed eventi per le programmazioni
+--   variabili  CURRENT_APP (app in primo piano o vuota), LAST_APP (app dell'ultimo evento)
+--   eventi     APP_OPENED, APP_CLOSED
+-- Si controlla solo l'app lanciata dal driver (tile o LAUNCH_APP): sapere quale
+-- app e' aperta, se la si apre col telecomando, richiederebbe di interrogarle tutte.
+-- ------------------------------------------------------------
+function M.init_variables()
+	C4:AddVariable("CURRENT_APP", "", "STRING")
+	C4:AddVariable("LAST_APP", "", "STRING")
+end
+
+local function announce(event, appName)
+	C4:SetVariable("LAST_APP", appName)
+	C4:SetVariable("CURRENT_APP", event == "APP_OPENED" and appName or "")
+	log.info("APP", event .. " -> " .. appName)
+	C4:FireEvent(event)
+end
+
+-- Variabili della stanza di Director (CURRENT_SELECTED_DEVICE, POWER_STATE,
+-- CURRENT_VIDEO_PATH). Gli id sono fissi: li espone la proxy della stanza.
+local ROOM_SELECTED_DEVICE = 1000
+local ROOM_POWER_STATE = 1010
+local ROOM_VIDEO_PATH = 1008
+
+local function own_proxy_ids()
+	local mine = {}
+	for _, id in ipairs({ C4:GetProxyDevices() }) do mine[tonumber(id)] = true end
+	-- il driver ha due proxy (TV e App Switcher): si uniscono anche quelle del dispositivo
+	local ok, ids = pcall(function() return { C4:GetProxyDevicesById(C4:GetDeviceID()) } end)
+	if ok then
+		for _, id in ipairs(ids) do mine[tonumber(id)] = true end
+	end
+	return mine
+end
+
+-- Quando si esce da un'app con il telecomando Control4 continua a credere la
+-- stanza sulla sorgente scelta (CURRENT_SELECTED_DEVICE): premere di nuovo la
+-- tile non manda nessun comando. Qui si riporta la sorgente alla TV, cosi' la
+-- tile funziona. Solo se la stanza e' accesa e instradata dal nostro App Switcher.
+local function sync_room_source()
+	if Properties["Reset Room Source On App Exit"] == "Off" then return end
+	if power ~= "ON" then return end
+
+	local room = C4:RoomGetId()
+	if not room or room == 0 then
+		log.debug("SYNC", "no room for this driver")
+		return
+	end
+	if tonumber(C4:GetDeviceVariable(room, ROOM_POWER_STATE)) ~= 1 then
+		-- selezionare una sorgente riaccenderebbe la stanza (e la TV)
+		log.debug("SYNC", "room is off, nothing to do")
+		return
+	end
+
+	local tvId, why = protocol.route_through_app_switch(C4:GetDeviceVariable(room, ROOM_VIDEO_PATH), own_proxy_ids())
+	if not tvId then
+		log.debug("SYNC", why .. ": left as is")
+		return
+	end
+
+	local selected = tonumber(C4:GetDeviceVariable(room, ROOM_SELECTED_DEVICE))
+	if selected == tvId then return end
+
+	log.info("SYNC", "app left the foreground: room source " .. tostring(selected) .. " -> TV " .. tvId)
+	C4:SendToDevice(room, "SELECT_VIDEO_DEVICE", { deviceid = tvId })
+end
+
+-- Se si spegne la TV (telecomando, timer di Samsung) Control4 resta sulla sorgente
+-- di prima, con la stanza "accesa". Con l'opzione attiva si spegne anche la stanza.
+-- Solo se la stanza e' accesa e sta usando questa TV; se la TV l'ha spenta Control4
+-- la stanza e' gia' spenta e non si fa nulla.
+function room_off_with_tv()
+	if Properties["Room Off When TV Turns Off"] ~= "On" then return end
+
+	local room = C4:RoomGetId()
+	if not room or room == 0 then return end
+	if tonumber(C4:GetDeviceVariable(room, ROOM_POWER_STATE)) ~= 1 then return end
+	if not protocol.path_uses_own_device(C4:GetDeviceVariable(room, ROOM_VIDEO_PATH), own_proxy_ids()) then
+		log.debug("SYNC", "the room is not using this TV: left as is")
+		return
+	end
+
+	-- ROOM_OFF fara' arrivare un OFF alla TV: power vale gia' OFF, quindi viene ignorato
+	log.info("SYNC", "TV turned off: turning the room off")
+	C4:SendToDevice(room, "ROOM_OFF", {})
+end
+
+-- Smette di controllare l'app. Se era in primo piano annuncia che e' uscita;
+-- `reason` dice perche' si smette:
+--   "left"        l'app e' uscita dal primo piano (unico caso in cui si riallinea Control4)
+--   "replaced"    un altro lancio ha preso il suo posto
+--   "power_off"   la TV si e' spenta
+--   "lost"        la TV non risponde piu'
+--   "unavailable" l'app non c'e' sulla TV
+--   "timeout"     non e' mai arrivata in primo piano
+function stop_watch(reason)
+	local w = foreground
+	if not w then return end
+	foreground = nil
+	w.timer = cancel(w.timer)
+	if w.opened then
+		announce("APP_CLOSED", w.app)
+		if reason == "left" then sync_room_source() end
+	end
+end
+
+local function watch_tick(w)
+	if foreground ~= w then return end
+	w.timer = nil
+
+	M.app_status(w.app, function(state, code)
+		if foreground ~= w then return end
+
+		local gone, reason = false, nil
+		if state == nil then
+			w.misses = w.misses + 1
+			gone, reason = (w.misses >= WATCH_MAX_MISSES), "lost"
+		elseif code ~= 200 then
+			log.warn("APP", "'" .. w.app .. "' is not available on the TV (HTTP " .. tostring(code) .. ")")
+			gone, reason = true, "unavailable"
+		else
+			w.misses = 0
+			if state.visible == true then
+				if not w.opened then
+					w.opened = true
+					announce("APP_OPENED", w.app)
+				end
+			elseif state.visible == false then
+				if w.opened then
+					gone, reason = true, "left"
+				elseif (now() - w.since) > WATCH_GRACE_S then
+					log.warn("APP", "'" .. w.app .. "' did not come to the foreground, no longer watched")
+					gone, reason = true, "timeout"
+				end
+			end
+		end
+
+		if gone then
+			stop_watch(reason)
+		else
+			w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)
+		end
+	end)
+end
+
+-- Da chiamare dopo un lancio riuscito. Un nuovo lancio sostituisce il controllo
+-- precedente (e, se quell'app era in primo piano, la dichiara chiusa).
+function M.watch_app(appName)
+	stop_watch("replaced")
+	local w = { app = appName, opened = false, since = now(), misses = 0 }
+	foreground = w
+	w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)
 end
 
 -- Se la TV e' accesa lancia subito; altrimenti aspetta che il REST confermi
@@ -582,6 +875,11 @@ function M.shutdown()
 	cancel_rest_timers()
 	rest.busy = false
 	rest.gen = rest.gen + 1
+	if foreground then
+		foreground.timer = cancel(foreground.timer)
+		foreground = nil -- niente eventi durante lo spegnimento del driver
+	end
+	if active_exchange then active_exchange.abort() end
 	release_rest_binding()
 	end_pairing()
 	drop_ws()

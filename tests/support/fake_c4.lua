@@ -106,6 +106,21 @@ function F.install()
 		addresses = {},  -- binding -> host (GetBindingAddress)
 		errorlog = {},
 		printed = {},
+		variables = {},  -- nome -> valore (AddVariable / SetVariable)
+		added = {},      -- nomi delle variabili create, nell'ordine
+		events = {},     -- eventi lanciati con FireEvent, nell'ordine
+		room_id = 300,   -- C4:RoomGetId()
+		room_vars = {    -- variabili della stanza: id -> valore (come nel progetto di prova)
+			[1000] = "372", -- CURRENT_SELECTED_DEVICE: il minidriver Plex
+			[1010] = "1",   -- POWER_STATE: stanza accesa
+			[1008] = '<devices><device><id>372</id><provider_binding_id>3101</provider_binding_id>'
+				.. '<consumer_binding_id>0</consumer_binding_id></device><device><id>327</id>'
+				.. '<provider_binding_id>2110</provider_binding_id><consumer_binding_id>3204</consumer_binding_id>'
+				.. '</device><device><id>325</id><provider_binding_id>7000</provider_binding_id>'
+				.. '<consumer_binding_id>1102</consumer_binding_id></device></devices>',
+		},
+		proxy_ids = { 325, 327 }, -- proxy di questo driver: TV e App Switcher
+		device_commands = {},     -- C4:SendToDevice: { id, command, params }
 	}
 
 	Properties = {
@@ -163,6 +178,26 @@ function F.install()
 		table.insert(env.sent[binding], data)
 	end
 	function C4:ErrorLog(line) env.errorlog[#env.errorlog + 1] = line end
+	function C4:AddVariable(name, value, varType)
+		env.added[#env.added + 1] = name
+		env.variables[name] = value
+	end
+	function C4:SetVariable(name, value) env.variables[name] = value end
+	function C4:RoomGetId() return env.room_id end
+	function C4:GetDeviceID() return 324 end
+	function C4:GetProxyDevices() return unpack(env.proxy_ids) end
+	function C4:GetProxyDevicesById(id) return unpack(env.proxy_ids) end
+	function C4:GetDeviceVariable(id, variable)
+		if id == env.room_id then return env.room_vars[variable] end
+		return nil
+	end
+	function C4:SendToDevice(id, command, params)
+		env.device_commands[#env.device_commands + 1] = { id = id, command = command, params = params }
+	end
+	function C4:FireEvent(name)
+		-- l'evento vede le variabili come sono nel momento in cui scatta
+		env.events[#env.events + 1] = { name = name, current = env.variables.CURRENT_APP, last = env.variables.LAST_APP }
+	end
 
 	-- ---- helper per i test ----
 

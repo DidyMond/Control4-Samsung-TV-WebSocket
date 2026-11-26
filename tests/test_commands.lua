@@ -10,6 +10,8 @@ local function setup(power, props)
 	local tv = {
 		send_key = function(key) calls[#calls + 1] = "key:" .. key; return true end,
 		launch_app = function(app) calls[#calls + 1] = "app:" .. app end,
+		app_status = function(app) calls[#calls + 1] = "status:" .. tostring(app) end,
+		app_status_all = function() calls[#calls + 1] = "status_all" end,
 		launch_app_when_on = function(app) calls[#calls + 1] = "app_when_on:" .. app end,
 		power = function() return power or "UNKNOWN" end,
 	}
@@ -159,6 +161,14 @@ t.test("ExecuteCommand: SEND_KEY e LAUNCH_APP con i loro parametri", function()
 	commands.execute("SEND_KEY", { KeyCode = "KEY_HOME" })
 	commands.execute("LAUNCH_APP", { AppName = "Netflix" })
 	t.same(calls, { "key:KEY_HOME", "app:Netflix" })
+end)
+
+t.test("ExecuteCommand: APP_STATUS e APP_STATUS_ALL (diagnostica)", function()
+	local _, commands, calls = setup()
+	commands.execute("APP_STATUS", { AppName = "YouTube" })
+	commands.execute("APP_STATUS", {})
+	commands.execute("APP_STATUS_ALL", {})
+	t.same(calls, { "status:YouTube", "status:Plex", "status_all" })
 end)
 
 t.test("ExecuteCommand: parametri mancanti o comando sconosciuto non fanno nulla", function()

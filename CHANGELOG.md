@@ -9,6 +9,31 @@ number.
 
 ## [Unreleased]
 
+## [v261126006] - 2026-11-26
+
+### Added
+- **Events `APP_OPENED` / `APP_CLOSED` and variables `CURRENT_APP` / `LAST_APP`** for Composer Programming. After
+  an app is launched (tile or `LAUNCH_APP`) the driver reads its state from the TV every 3 s: `visible` turning
+  true fires `APP_OPENED`, turning false fires `APP_CLOSED` (also when the TV turns off or stops answering).
+- **Reset Room Source On App Exit** (default `On`): Control4 only sends a source selection when the room source
+  changes, so after leaving an app with the TV remote the tile did nothing. When the app leaves the foreground
+  the driver selects its own TV as the room's video device (`SELECT_VIDEO_DEVICE`) and the tile works again. It
+  does nothing when the TV is off, the room is off, a new app was launched meanwhile or the room source is
+  not behind the App Switcher.
+- **Room Off When TV Turns Off** (default `Off`): also turns the Control4 room off (`ROOM_OFF`) when the TV is
+  turned off with its remote or timer, only if the room is on and using this TV. Mind any *Room Off* programming.
+- Diagnostic commands for the driver's Lua field: `APP_STATUS` (`AppName`) and `APP_STATUS_ALL` log the state
+  the TV reports for an app (`running`, `visible`, HTTP code).
+- `[SYNC]` log tag for the room alignment.
+
+### Fixed
+- Two HTTPS requests to the TV in quick succession shared one network binding, and the timer of the first could
+  release the binding of the second. Only one request is active at a time now.
+
+### Updating
+- Update the driver in Composer: the new events, variables and properties appear on their own and no binding has
+  to be redone. **Reset Room Source On App Exit** is `On` by default, **Room Off When TV Turns Off** is `Off`.
+
 ## [v261126002] - 2026-11-26
 
 ### Added
@@ -72,6 +97,7 @@ First public release.
 - Other TV models and Control4 OS versions are not verified.
 - No Wake-on-LAN: a TV that has lost power cannot be turned on over the network.
 
-[Unreleased]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126002...HEAD
+[Unreleased]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126006...HEAD
+[v261126006]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261126002...v261126006
 [v261126002]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/compare/v261021001...v261126002
 [v261021001]: https://github.com/DidyMond/Control4-Samsung-TV-WebSocket/releases/tag/v261021001

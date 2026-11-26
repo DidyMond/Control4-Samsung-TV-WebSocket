@@ -78,6 +78,7 @@ body:
         - **Telecomando / remote:** `[WS]`, `[CMD]`.
         - **Abbinamento / pairing:** `[PAIR]`.
         - **App e MiniApp:** `[APP]`.
+        - **Sorgente della stanza Control4 / room source:** `[SYNC]`.
         - **Errori / errors:** `[DRIVER]` (errori non gestiti, sempre visibili / unhandled errors, always visible).
       render: text
   - type: textarea

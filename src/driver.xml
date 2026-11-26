@@ -5,7 +5,7 @@
 	<created>08/30/2026 11:19 AM</created>
 	<modified>10/21/2026 06:00 PM</modified>
 	<manufacturer>Samsung</manufacturer>
-	<version>261021001</version>
+	<version>261126002</version>
 	<control>lua_gen</control>
 	<controlmethod>ip</controlmethod>
 	<driver>DriverWorks</driver>
@@ -22,7 +22,7 @@
 				<name>Driver Version</name>
 				<type>STRING</type>
 				<readonly>true</readonly>
-				<default>261021001</default>
+				<default>261126002</default>
 			</property>
 			<property>
 				<name>-Connection</name>

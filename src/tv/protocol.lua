@@ -56,6 +56,49 @@ function M.parse_app_state(response)
 	return { running = flag("running"), visible = flag("visible") }
 end
 
+-- ------------------------------------------------------------
+-- Percorso video della stanza (variabile CURRENT_VIDEO_PATH di Director):
+--   <devices><device><id>372</id><provider_binding_id>3101</provider_binding_id>
+--   <consumer_binding_id>0</consumer_binding_id></device>...</devices>
+-- ------------------------------------------------------------
+M.APP_SWITCH_VIDEO_OUT = 2110 -- uscita video dell'App Switcher (driver.xml)
+M.TV_APP_SWITCH_IN = 1102     -- ingresso della TV collegato all'App Switcher (driver.xml)
+
+function M.parse_path(xml)
+	local devices = {}
+	for id, provider, consumer in tostring(xml):gmatch(
+		"<device>%s*<id>(%d+)</id>%s*<provider_binding_id>(%d+)</provider_binding_id>"
+		.. "%s*<consumer_binding_id>(%d+)</consumer_binding_id>%s*</device>") do
+		devices[#devices + 1] = { id = tonumber(id), provider = tonumber(provider), consumer = tonumber(consumer) }
+	end
+	return devices
+end
+
+-- Il percorso passa dal nostro App Switcher? `mine` e' l'insieme degli id delle
+-- proxy di questo driver (id -> true). Restituisce l'id della nostra TV (la
+-- proxy il cui ingresso 1102 e' collegato), oppure nil e il motivo.
+function M.route_through_app_switch(pathXml, mine)
+	local viaSwitch, tvId = false, nil
+	for _, device in ipairs(M.parse_path(pathXml)) do
+		if mine[device.id] then
+			if device.provider == M.APP_SWITCH_VIDEO_OUT then viaSwitch = true end
+			if device.consumer == M.TV_APP_SWITCH_IN then tvId = device.id end
+		end
+	end
+	if not viaSwitch then return nil, "the room source is not behind the App Switcher" end
+	if not tvId then return nil, "own TV not found in the video path" end
+	return tvId
+end
+
+-- Il percorso video della stanza passa da una delle nostre proxy? Vero quando la
+-- stanza sta usando questa TV (con una sorgente HDMI o con l'App Switcher).
+function M.path_uses_own_device(pathXml, mine)
+	for _, device in ipairs(M.parse_path(pathXml)) do
+		if mine[device.id] then return true end
+	end
+	return false
+end
+
 -- Codice di stato di una risposta HTTP ("HTTP/1.1 200 OK" -> 200).
 function M.http_status(response)
 	local code = tostring(response):match("^HTTP/%d%.%d (%d+)")

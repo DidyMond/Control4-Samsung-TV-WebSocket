@@ -266,6 +266,28 @@
 				</items>
 			</property>
 			<property>
+				<name>Reset Room Source On App Exit</name>
+				<description>When an app launched from a MiniApp tile is closed with the TV remote, set the Control4 room source back to the TV so the tile works again</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>On</default>
+				<items>
+					<item>On</item>
+					<item>Off</item>
+				</items>
+			</property>
+			<property>
+				<name>Room Off When TV Turns Off</name>
+				<description>When the TV is turned off with its remote or by its own timer, also turn off the Control4 room that is using it</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Off</default>
+				<items>
+					<item>On</item>
+					<item>Off</item>
+				</items>
+			</property>
+			<property>
 				<name>-Debug</name>
 				<type>LABEL</type>
 				<default>Debug</default>

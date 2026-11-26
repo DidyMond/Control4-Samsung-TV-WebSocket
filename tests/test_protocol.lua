@@ -41,6 +41,61 @@ t.test("parse_app_state: campi assenti o risposta senza JSON", function()
 	t.eq(state.visible, nil)
 end)
 
+-- percorso video reale di un progetto: Plex (372) -> App Switcher (327) -> TV (325)
+local PATH = '<devices><device><id>372</id><provider_binding_id>3101</provider_binding_id>'
+	.. '<consumer_binding_id>0</consumer_binding_id></device><device><id>327</id>'
+	.. '<provider_binding_id>2110</provider_binding_id><consumer_binding_id>3204</consumer_binding_id>'
+	.. '</device><device><id>325</id><provider_binding_id>7000</provider_binding_id>'
+	.. '<consumer_binding_id>1102</consumer_binding_id></device></devices>'
+
+t.test("parse_path: elenco dei dispositivi del percorso", function()
+	local devices = protocol.parse_path(PATH)
+	t.eq(#devices, 3)
+	t.same(devices[2], { id = 327, provider = 2110, consumer = 3204 })
+	t.same(protocol.parse_path(""), {})
+	t.same(protocol.parse_path(nil), {})
+end)
+
+t.test("route_through_app_switch: restituisce l'id della nostra TV", function()
+	t.eq((protocol.route_through_app_switch(PATH, { [325] = true, [327] = true })), 325)
+	-- con gli spazi che un XML formattato potrebbe avere
+	local spaced = PATH:gsub("><", ">\n  <")
+	t.eq((protocol.route_through_app_switch(spaced, { [325] = true, [327] = true })), 325)
+end)
+
+t.test("route_through_app_switch: non tocca percorsi che non sono i nostri", function()
+	local tv, why = protocol.route_through_app_switch(PATH, { [999] = true })
+	t.eq(tv, nil)
+	t.contains(why, "not behind the App Switcher")
+
+	-- un'altra sorgente (HDMI di un altro dispositivo): nessun App Switcher nel percorso
+	local other = '<devices><device><id>400</id><provider_binding_id>3000</provider_binding_id>'
+		.. '<consumer_binding_id>0</consumer_binding_id></device><device><id>325</id>'
+		.. '<provider_binding_id>7000</provider_binding_id><consumer_binding_id>1001</consumer_binding_id></device></devices>'
+	tv, why = protocol.route_through_app_switch(other, { [325] = true, [327] = true })
+	t.eq(tv, nil)
+	t.contains(why, "not behind the App Switcher")
+	t.eq((protocol.route_through_app_switch("", { [325] = true })), nil)
+end)
+
+t.test("path_uses_own_device: la stanza sta usando questa TV (App Switcher o HDMI)", function()
+	t.truthy(protocol.path_uses_own_device(PATH, { [325] = true, [327] = true }))
+	local hdmi = '<devices><device><id>400</id><provider_binding_id>3000</provider_binding_id>'
+		.. '<consumer_binding_id>0</consumer_binding_id></device><device><id>325</id>'
+		.. '<provider_binding_id>7000</provider_binding_id><consumer_binding_id>1001</consumer_binding_id></device></devices>'
+	t.truthy(protocol.path_uses_own_device(hdmi, { [325] = true }))
+	t.falsy(protocol.path_uses_own_device(PATH, { [999] = true }))
+	t.falsy(protocol.path_uses_own_device("", { [325] = true }))
+end)
+
+t.test("route_through_app_switch: App Switcher presente ma TV non trovata", function()
+	local broken = '<devices><device><id>327</id><provider_binding_id>2110</provider_binding_id>'
+		.. '<consumer_binding_id>3204</consumer_binding_id></device></devices>'
+	local tv, why = protocol.route_through_app_switch(broken, { [327] = true })
+	t.eq(tv, nil)
+	t.contains(why, "own TV not found")
+end)
+
 t.test("http_status", function()
 	t.eq(protocol.http_status("HTTP/1.1 200 OK\r\n"), 200)
 	t.eq(protocol.http_status("HTTP/1.1 404 Not Found"), 404)

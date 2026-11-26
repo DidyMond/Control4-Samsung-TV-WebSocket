@@ -80,7 +80,8 @@ local queue = {}
 local pump_timer = nil
 
 local foreground = nil -- app sotto controllo: { app, opened, since, misses, timer }
-local stop_watch -- dichiarata sotto, serve a apply_reading
+local stop_watch -- stop_watch(motivo), dichiarata sotto: serve a apply_reading
+local room_off_with_tv -- dichiarata sotto: serve a apply_reading
 
 -- Orologio in secondi (sostituibile nei test: il tempo simulato non sposta os.time)
 local now = os.time
@@ -187,13 +188,14 @@ local function apply_reading(body)
 		local first = (power == "UNKNOWN")
 		power = reading
 		log.info("REST", "state -> " .. power)
-		if power == "OFF" then stop_watch() end
+		if power == "OFF" then stop_watch("power_off") end
 		if first then
 			-- al primo check (avvio del driver) si sincronizza lo stato senza
 			-- notificarlo: niente eventi fantasma Power On / Power Off
 			log.info("REST", "initial state synchronised (no notification)")
 		else
 			C4:SendToProxy(protocol.TV_PROXY, power, {}, "NOTIFY")
+			if power == "OFF" then room_off_with_tv() end
 		end
 	end
 
@@ -699,13 +701,92 @@ local function announce(event, appName)
 	C4:FireEvent(event)
 end
 
--- Smette di controllare l'app; se era in primo piano annuncia che e' uscita.
-function stop_watch()
+-- Variabili della stanza di Director (CURRENT_SELECTED_DEVICE, POWER_STATE,
+-- CURRENT_VIDEO_PATH). Gli id sono fissi: li espone la proxy della stanza.
+local ROOM_SELECTED_DEVICE = 1000
+local ROOM_POWER_STATE = 1010
+local ROOM_VIDEO_PATH = 1008
+
+local function own_proxy_ids()
+	local mine = {}
+	for _, id in ipairs({ C4:GetProxyDevices() }) do mine[tonumber(id)] = true end
+	-- il driver ha due proxy (TV e App Switcher): si uniscono anche quelle del dispositivo
+	local ok, ids = pcall(function() return { C4:GetProxyDevicesById(C4:GetDeviceID()) } end)
+	if ok then
+		for _, id in ipairs(ids) do mine[tonumber(id)] = true end
+	end
+	return mine
+end
+
+-- Quando si esce da un'app con il telecomando Control4 continua a credere la
+-- stanza sulla sorgente scelta (CURRENT_SELECTED_DEVICE): premere di nuovo la
+-- tile non manda nessun comando. Qui si riporta la sorgente alla TV, cosi' la
+-- tile funziona. Solo se la stanza e' accesa e instradata dal nostro App Switcher.
+local function sync_room_source()
+	if Properties["Reset Room Source On App Exit"] == "Off" then return end
+	if power ~= "ON" then return end
+
+	local room = C4:RoomGetId()
+	if not room or room == 0 then
+		log.debug("SYNC", "no room for this driver")
+		return
+	end
+	if tonumber(C4:GetDeviceVariable(room, ROOM_POWER_STATE)) ~= 1 then
+		-- selezionare una sorgente riaccenderebbe la stanza (e la TV)
+		log.debug("SYNC", "room is off, nothing to do")
+		return
+	end
+
+	local tvId, why = protocol.route_through_app_switch(C4:GetDeviceVariable(room, ROOM_VIDEO_PATH), own_proxy_ids())
+	if not tvId then
+		log.debug("SYNC", why .. ": left as is")
+		return
+	end
+
+	local selected = tonumber(C4:GetDeviceVariable(room, ROOM_SELECTED_DEVICE))
+	if selected == tvId then return end
+
+	log.info("SYNC", "app left the foreground: room source " .. tostring(selected) .. " -> TV " .. tvId)
+	C4:SendToDevice(room, "SELECT_VIDEO_DEVICE", { deviceid = tvId })
+end
+
+-- Se si spegne la TV (telecomando, timer di Samsung) Control4 resta sulla sorgente
+-- di prima, con la stanza "accesa". Con l'opzione attiva si spegne anche la stanza.
+-- Solo se la stanza e' accesa e sta usando questa TV; se la TV l'ha spenta Control4
+-- la stanza e' gia' spenta e non si fa nulla.
+function room_off_with_tv()
+	if Properties["Room Off When TV Turns Off"] ~= "On" then return end
+
+	local room = C4:RoomGetId()
+	if not room or room == 0 then return end
+	if tonumber(C4:GetDeviceVariable(room, ROOM_POWER_STATE)) ~= 1 then return end
+	if not protocol.path_uses_own_device(C4:GetDeviceVariable(room, ROOM_VIDEO_PATH), own_proxy_ids()) then
+		log.debug("SYNC", "the room is not using this TV: left as is")
+		return
+	end
+
+	-- ROOM_OFF fara' arrivare un OFF alla TV: power vale gia' OFF, quindi viene ignorato
+	log.info("SYNC", "TV turned off: turning the room off")
+	C4:SendToDevice(room, "ROOM_OFF", {})
+end
+
+-- Smette di controllare l'app. Se era in primo piano annuncia che e' uscita;
+-- `reason` dice perche' si smette:
+--   "left"        l'app e' uscita dal primo piano (unico caso in cui si riallinea Control4)
+--   "replaced"    un altro lancio ha preso il suo posto
+--   "power_off"   la TV si e' spenta
+--   "lost"        la TV non risponde piu'
+--   "unavailable" l'app non c'e' sulla TV
+--   "timeout"     non e' mai arrivata in primo piano
+function stop_watch(reason)
 	local w = foreground
 	if not w then return end
 	foreground = nil
 	w.timer = cancel(w.timer)
-	if w.opened then announce("APP_CLOSED", w.app) end
+	if w.opened then
+		announce("APP_CLOSED", w.app)
+		if reason == "left" then sync_room_source() end
+	end
 end
 
 local function watch_tick(w)
@@ -715,13 +796,13 @@ local function watch_tick(w)
 	M.app_status(w.app, function(state, code)
 		if foreground ~= w then return end
 
-		local gone = false
+		local gone, reason = false, nil
 		if state == nil then
 			w.misses = w.misses + 1
-			gone = (w.misses >= WATCH_MAX_MISSES)
+			gone, reason = (w.misses >= WATCH_MAX_MISSES), "lost"
 		elseif code ~= 200 then
 			log.warn("APP", "'" .. w.app .. "' is not available on the TV (HTTP " .. tostring(code) .. ")")
-			gone = true
+			gone, reason = true, "unavailable"
 		else
 			w.misses = 0
 			if state.visible == true then
@@ -731,16 +812,16 @@ local function watch_tick(w)
 				end
 			elseif state.visible == false then
 				if w.opened then
-					gone = true
+					gone, reason = true, "left"
 				elseif (now() - w.since) > WATCH_GRACE_S then
 					log.warn("APP", "'" .. w.app .. "' did not come to the foreground, no longer watched")
-					gone = true
+					gone, reason = true, "timeout"
 				end
 			end
 		end
 
 		if gone then
-			stop_watch()
+			stop_watch(reason)
 		else
 			w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)
 		end
@@ -750,7 +831,7 @@ end
 -- Da chiamare dopo un lancio riuscito. Un nuovo lancio sostituisce il controllo
 -- precedente (e, se quell'app era in primo piano, la dichiara chiusa).
 function M.watch_app(appName)
-	stop_watch()
+	stop_watch("replaced")
 	local w = { app = appName, opened = false, since = now(), misses = 0 }
 	foreground = w
 	w.timer = timer.after(WATCH_INTERVAL_MS, function() watch_tick(w) end)

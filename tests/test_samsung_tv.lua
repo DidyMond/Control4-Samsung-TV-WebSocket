@@ -719,6 +719,219 @@ t.test("shutdown con un'app controllata: nessun timer e nessun evento", function
 end)
 
 -- ------------------------------------------------------------
+-- Riallineamento della sorgente della stanza dopo l'uscita da un'app
+-- ------------------------------------------------------------
+
+-- App aperta con la TV accesa, pronta per essere "lasciata" nei test
+local function open_app(env, tv)
+	tv.init_variables()
+	run_check(env, tv, ON_BODY)
+	launch(env, tv, "Plex")
+	tick(env, app_body(true, true))
+end
+
+local function selections(env)
+	local out = {}
+	for _, c in ipairs(env.device_commands) do
+		out[#out + 1] = c.command .. ":" .. tostring(c.params.deviceid) .. "@" .. tostring(c.id)
+	end
+	return out
+end
+
+t.test("sync: uscita dall'app con il telecomando -> la stanza torna sulla TV", function()
+	local env, tv = setup()
+	open_app(env, tv)
+	t.same(selections(env), {}, "nulla finche' l'app e' in primo piano")
+	tick(env, app_body(true, false))
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.same(selections(env), { "SELECT_VIDEO_DEVICE:325@300" })
+	t.contains(logged(env), "room source 372 -> TV 325")
+end)
+
+t.test("sync: proprieta' Off -> nessun comando alla stanza", function()
+	local env, tv = setup()
+	Properties["Reset Room Source On App Exit"] = "Off"
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.same(selections(env), {})
+end)
+
+t.test("sync: gli id della proxy si ricavano anche se GetProxyDevices ne da' uno solo", function()
+	local env, tv = setup()
+	env.proxy_ids = { 325 }
+	function C4:GetProxyDevicesById() return 325, 327 end
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(selections(env), { "SELECT_VIDEO_DEVICE:325@300" })
+end)
+
+t.test("sync: nessun comando se la sorgente della stanza non e' dietro il nostro App Switcher", function()
+	local env, tv = setup()
+	env.room_vars[1008] = '<devices><device><id>400</id><provider_binding_id>3000</provider_binding_id>'
+		.. '<consumer_binding_id>0</consumer_binding_id></device><device><id>325</id>'
+		.. '<provider_binding_id>7000</provider_binding_id><consumer_binding_id>1001</consumer_binding_id></device></devices>'
+	env.room_vars[1000] = "400"
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(selections(env), {})
+	t.contains(logged(env), "not behind the App Switcher")
+end)
+
+t.test("sync: nessun comando se la sorgente e' gia' la TV", function()
+	local env, tv = setup()
+	env.room_vars[1000] = "325"
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(selections(env), {})
+end)
+
+t.test("sync: stanza spenta -> nessun comando (selezionare una sorgente la riaccenderebbe)", function()
+	local env, tv = setup()
+	env.room_vars[1010] = "0"
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(selections(env), {})
+	t.contains(logged(env), "room is off")
+end)
+
+t.test("sync: TV spenta -> APP_CLOSED ma nessun comando (non si deve riaccendere la TV)", function()
+	local env, tv = setup()
+	open_app(env, tv)
+	run_check(env, tv, STANDBY_BODY)
+	run_check(env, tv, STANDBY_BODY)
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.same(selections(env), {})
+end)
+
+t.test("sync: nuovo lancio (tile di un'altra app) non annulla la scelta appena fatta", function()
+	local env, tv = setup()
+	open_app(env, tv)
+	launch(env, tv, "Netflix")
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.same(selections(env), {}, "la sorgente scelta per Netflix non va toccata")
+end)
+
+t.test("sync: TV che non risponde (lost) -> nessun comando", function()
+	local env, tv = setup()
+	open_app(env, tv)
+	tick(env, nil)
+	tick(env, nil)
+	tick(env, nil)
+	t.same(event_names(env), { "APP_OPENED", "APP_CLOSED" })
+	t.same(selections(env), {})
+end)
+
+t.test("sync: app mai arrivata in primo piano -> nessun evento e nessun comando", function()
+	local env, tv = setup()
+	tv.init_variables()
+	run_check(env, tv, ON_BODY)
+	launch(env, tv, "Plex")
+	for _ = 1, 12 do tick(env, app_body(true, false)) end
+	t.same(event_names(env), {})
+	t.same(selections(env), {})
+end)
+
+t.test("sync: senza stanza per il driver (RoomGetId = 0) nessun comando e nessun errore", function()
+	local env, tv = setup()
+	env.room_id = 0
+	open_app(env, tv)
+	tick(env, app_body(true, false))
+	t.same(selections(env), {})
+	t.contains(logged(env), "no room for this driver")
+end)
+
+-- ------------------------------------------------------------
+-- Stanza spenta quando si spegne la TV
+-- ------------------------------------------------------------
+local function room_commands(env)
+	local out = {}
+	for _, c in ipairs(env.device_commands) do out[#out + 1] = c.command .. "@" .. tostring(c.id) end
+	return out
+end
+
+-- TV accesa e stanza accesa; poi la TV si spegne (due letture OFF consecutive)
+local function turn_tv_off(env, tv)
+	run_check(env, tv, ON_BODY)
+	run_check(env, tv, STANDBY_BODY)
+	run_check(env, tv, STANDBY_BODY)
+end
+
+t.test("room off: TV spenta con l'opzione attiva -> ROOM_OFF alla stanza", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	turn_tv_off(env, tv)
+	t.eq(tv.power(), "OFF")
+	t.same(notifications(env), { "OFF" })
+	t.same(room_commands(env), { "ROOM_OFF@300" })
+	t.contains(logged(env), "TV turned off: turning the room off")
+end)
+
+t.test("room off: opzione Off (predefinita) o non impostata -> nessun comando", function()
+	local env, tv = setup()
+	turn_tv_off(env, tv)
+	t.same(room_commands(env), {})
+
+	local env2, tv2 = setup()
+	Properties["Room Off When TV Turns Off"] = "Off"
+	turn_tv_off(env2, tv2)
+	t.same(room_commands(env2), {})
+end)
+
+t.test("room off: una sola lettura OFF (non confermata) non spegne la stanza", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	run_check(env, tv, ON_BODY)
+	run_check(env, tv, STANDBY_BODY)
+	t.same(room_commands(env), {})
+end)
+
+t.test("room off: al primo check dopo l'avvio (TV gia' spenta) nessun comando", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	run_check(env, tv, STANDBY_BODY)
+	t.eq(tv.power(), "OFF")
+	t.same(room_commands(env), {})
+end)
+
+t.test("room off: stanza gia' spenta (spenta da Control4) -> nessun comando", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	env.room_vars[1010] = "0"
+	turn_tv_off(env, tv)
+	t.same(room_commands(env), {})
+end)
+
+t.test("room off: la stanza non sta usando questa TV (es. solo musica) -> nessun comando", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	env.room_vars[1008] = ""
+	turn_tv_off(env, tv)
+	t.same(room_commands(env), {})
+	t.contains(logged(env), "the room is not using this TV")
+end)
+
+t.test("room off: senza stanza per il driver nessun comando e nessun errore", function()
+	local env, tv = setup()
+	Properties["Room Off When TV Turns Off"] = "On"
+	env.room_id = 0
+	turn_tv_off(env, tv)
+	t.same(room_commands(env), {})
+end)
+
+t.test("room off: l'OFF che Director rimanda alla TV viene ignorato (nessun KEY_POWER)", function()
+	local env, tv = setup()
+	local Commands = require "tv.commands"
+	Properties["Room Off When TV Turns Off"] = "On"
+	local sent = {}
+	local wrapper = setmetatable({ send_key = function(key) sent[#sent + 1] = key; return true end }, { __index = tv })
+	local commands = Commands.new(wrapper)
+	turn_tv_off(env, tv)
+	commands.handle_proxy(5000, "OFF", {}) -- quello che farebbe Director dopo ROOM_OFF
+	t.same(sent, {})
+end)
+
+-- ------------------------------------------------------------
 t.test("shutdown: nessun timer rimasto", function()
 	local env, tv = setup()
 	run_check(env, tv, ON_BODY)

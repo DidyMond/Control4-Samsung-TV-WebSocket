@@ -122,6 +122,60 @@ Dalla Watch experience il lancio passa da `launch_app_when_on`: se la TV non è 
 check REST e riprova ogni 1,5 s, fino a 10 volte. Director manda `SET_INPUT` due volte (audio + video):
 `commands.lua` ignora lo stesso lancio entro 3 s.
 
+### 2.4 App in primo piano, eventi e sorgente della stanza
+
+**Perché serve.** Control4 manda al driver la selezione di una sorgente (`SET_INPUT` sull'App Switcher) solo quando
+la sorgente della stanza *cambia*. Se si esce da un'app con il telecomando, per Director la stanza resta sulla
+sorgente di prima (`CURRENT_SELECTED_DEVICE` = il minidriver) e premere di nuovo la tile non invia nulla.
+
+**Controllo dell'app** (`watch_app`, `watch_tick`). Dopo un lancio riuscito il driver legge ogni 3 s
+`GET https://<ip>:8002/api/v2/applications/<id>`, che risponde con `running` e `visible`. Quando si esce con il
+telecomando `running` resta `true` (l'app rimane aperta in background) e cambia solo **`visible`**: è quello che conta.
+- `visible = true` → evento `APP_OPENED` (una sola volta) e `CURRENT_APP` = nome dell'app.
+- `visible = false` dopo essere stata in primo piano → `APP_CLOSED`, `CURRENT_APP` vuota e controllo concluso.
+- Se non arriva mai in primo piano entro 30 s, o la TV risponde 404, il controllo si ferma senza eventi.
+- Tre risposte mancate di fila danno l'app per uscita; una sola non basta.
+- Un nuovo lancio sostituisce il controllo (e chiude l'app precedente se era in primo piano); lo spegnimento della
+  TV chiude l'app in primo piano.
+`LAST_APP` è impostata prima di ogni evento, perché a `APP_CLOSED` la `CURRENT_APP` è già vuota. Le variabili
+si creano in `OnDriverInit` (`init_variables`), come richiede `C4:AddVariable`. Si controlla solo l'app lanciata dal
+driver: sapere quale app è aperta in generale richiederebbe di interrogarle tutte di continuo.
+
+**Riallineamento della stanza** (`sync_room_source`). Alla chiusura *per uscita* dell'app (`reason = "left"`) il driver
+legge tre variabili della stanza (`C4:RoomGetId()`, `C4:GetDeviceVariable`): `CURRENT_SELECTED_DEVICE` (1000),
+`POWER_STATE` (1010) e `CURRENT_VIDEO_PATH` (1008, il percorso del segnale: sorgente → App Switcher → TV). Se il
+percorso passa dall'uscita 2110 del nostro App Switcher e dall'ingresso 1102 della nostra TV (gli id delle proxy
+vengono da `C4:GetProxyDevices()`), manda alla stanza
+`C4:SendToDevice(stanza, "SELECT_VIDEO_DEVICE", { deviceid = <proxy della TV> })`. Director aggiorna allora tutte le
+variabili che descrivono la sorgente (`CURRENT_SELECTED_DEVICE`, `CURRENT_VIDEO_DEVICE`, `CURRENT MEDIA INFO`…) e il
+Navigator la mostra. Selezionare la TV non fa arrivare `SET_INPUT` al driver (solo il routing `SELECT_SOURCE` /
+`DISCONNECT_OUTPUT`), quindi la TV non cambia ingresso. Non si agisce quando:
+
+| Situazione | Motivo |
+|---|---|
+| la TV si è spenta (`power_off`) | selezionare una sorgente riaccenderebbe la stanza e la TV |
+| un altro lancio ha sostituito l'app (`replaced`) | si annullerebbe la sorgente appena scelta dall'utente |
+| la TV non risponde (`lost`) o l'app non c'è (`unavailable`) | non si sa che cosa stia vedendo la TV |
+| la stanza è spenta (`POWER_STATE` ≠ 1) | selezionare una sorgente la riaccenderebbe |
+| il percorso non passa dal nostro App Switcher | la stanza usa un'altra sorgente: non è nostra |
+| la sorgente è già la TV | niente da fare |
+
+Si può disattivare con la proprietà `Reset Room Source On App Exit`.
+
+**Stanza spenta con la TV** (`room_off_with_tv`, proprietà `Room Off When TV Turns Off`, default `Off`). Quando lo
+spegnimento della TV è confermato (due letture REST) e non è il primo check dopo l'avvio, se la stanza è accesa e il
+suo percorso video passa da una nostra proxy, il driver manda `ROOM_OFF`. Director risponde con un `OFF` alla proxy
+della TV, che il driver ignora perché lo stato è già `OFF`: nessun `KEY_POWER`. Se la TV è stata spenta da Control4 la
+stanza è già spenta e non si fa nulla. Attenzione: un `ROOM_OFF` può far scattare le programmazioni su *Room Off*.
+
+**Scambio HTTPS.** Lancio app, stato delle app e controllo condividono il binding 6098: c'è un solo scambio attivo
+(`https_exchange`); uno nuovo chiude quello in corso (che riceve `on_aborted`), così il timer del vecchio non può
+liberare il binding del nuovo.
+
+**Diagnostica.** Dal campo Lua del driver: `ExecuteCommand("APP_STATUS", { AppName = "Plex" })` e
+`ExecuteCommand("APP_STATUS_ALL", {})` scrivono nel log `HTTP`, `running` e `visible` di un'app o di tutte (`404` =
+non installata o ID diverso su quel modello).
+
 ## 3. Pairing e token
 
 - La proprietà LIST `Pairing` (`Select...`, `Pair with TV`, `Unpair`) fa da trigger e torna a `Select...` dopo
@@ -223,12 +277,16 @@ nel codice esistano nell'XML.
 | Lancio app doppio | Director manda `SET_INPUT` due volte | stesso lancio ignorato entro 3 s | `commands.lua` |
 | Token nelle issue pubbliche | URL e messaggi loggati | `util.redact` in ogni riga di log | `lib/log` |
 | Errore silenzioso in un timer | eccezione non gestita | `safe()` con `pcall`, sempre visibile | `driver.lua` |
+| Tile che non fa nulla dopo l'uscita dall'app | Director invia la selezione solo se la sorgente cambia | la stanza torna sulla TV | `sync_room_source` |
+| TV riaccesa dal riallineamento | selezionare una sorgente riaccende la stanza | niente riallineamento dopo spegnimento TV o a stanza spenta | `stop_watch` |
+| Scelta dell'utente annullata | nuovo lancio mentre l'app precedente esce | `reason = "replaced"`: nessuna selezione | `stop_watch` |
+| Binding HTTPS liberato dal timer sbagliato | due scambi ravvicinati sullo stesso binding | un solo scambio attivo, quello vecchio si chiude | `https_exchange` |
 
 ## 9. Log
 
 Livelli `0 Alert … 5 Debug` (un messaggio di severità *S* è emesso se *S* ≤ `Log Level`), modi `Off` / `Print` /
 `Log` / `Print and Log`. Tag: `[REST]` stato, `[WS]` WebSocket, `[PAIR]` abbinamento, `[CMD]` comandi, `[APP]`
-lancio app, `[LIFECYCLE]` ciclo di vita, `[DRIVER]` errori non gestiti. A livello Info compaiono solo gli
+lancio app, `[SYNC]` allineamento della stanza Control4, `[LIFECYCLE]` ciclo di vita, `[DRIVER]` errori non gestiti. A livello Info compaiono solo gli
 eventi rilevanti; il routing di Director è visibile da Trace, ogni check REST da Debug.
 
 ## 10. Test

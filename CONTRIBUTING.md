@@ -69,8 +69,8 @@ Una PR che contiene codice derivato da quel materiale verrà rifiutata.
 ### Debug
 Il driver ha **Log Mode** (`Off` / `Print` / `Log` / `Print and Log`, default `Off`) e **Log Level**
 (`0 - Alert` … `5 - Debug`, default `3 - Info`): un messaggio di severità *S* è emesso se *S* ≤ livello.
-Ogni messaggio ha un tag tra parentesi (`[REST]`, `[WS]`, `[PAIR]`, `[CMD]`, `[APP]`, `[LIFECYCLE]`,
-`[DRIVER]`). Gli errori non gestiti sono sempre visibili, anche con Log Mode `Off`.
+Ogni messaggio ha un tag tra parentesi (`[REST]`, `[WS]`, `[PAIR]`, `[CMD]`, `[APP]`, `[SYNC]`,
+`[LIFECYCLE]`, `[DRIVER]`). Gli errori non gestiti sono sempre visibili, anche con Log Mode `Off`.
 
 ## Pull request
 

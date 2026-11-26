@@ -9,6 +9,25 @@ number.
 
 ## [Unreleased]
 
+### Added
+- **Events `APP_OPENED` / `APP_CLOSED` and variables `CURRENT_APP` / `LAST_APP`** for Composer Programming. After
+  an app is launched (tile or `LAUNCH_APP`) the driver reads its state from the TV every 3 s: `visible` turning
+  true fires `APP_OPENED`, turning false fires `APP_CLOSED` (also when the TV turns off or stops answering).
+- **Reset Room Source On App Exit** (default `On`): Control4 only sends a source selection when the room source
+  changes, so after leaving an app with the TV remote the tile did nothing. When the app leaves the foreground
+  the driver selects its own TV as the room's video device (`SELECT_VIDEO_DEVICE`) and the tile works again. It
+  does nothing when the TV is off, the room is off, a new app was launched meanwhile or the room source is
+  not behind the App Switcher.
+- **Room Off When TV Turns Off** (default `Off`): also turns the Control4 room off (`ROOM_OFF`) when the TV is
+  turned off with its remote or timer, only if the room is on and using this TV. Mind any *Room Off* programming.
+- Diagnostic commands for the driver's Lua field: `APP_STATUS` (`AppName`) and `APP_STATUS_ALL` log the state
+  the TV reports for an app (`running`, `visible`, HTTP code).
+- `[SYNC]` log tag for the room alignment.
+
+### Fixed
+- Two HTTPS requests to the TV in quick succession shared one network binding, and the timer of the first could
+  release the binding of the second. Only one request is active at a time now.
+
 ## [v261126002] - 2026-11-26
 
 ### Added

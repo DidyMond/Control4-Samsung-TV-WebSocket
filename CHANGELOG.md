@@ -10,10 +10,13 @@ number.
 ## [Unreleased]
 
 ### Added
-- **Plex** MiniApp: a tenth slot (**MiniApp 10**, binding 3210) on the *Samsung App Switcher* proxy and
-  `Plex` as an `AppName` for `LAUNCH_APP`. The app id (`3201512006963`) comes from community references,
-  not from Samsung: if the app does not start on your TV model, open an issue with the log lines tagged
-  `[APP]`.
+- **Choose the app of every MiniApp slot**: new properties **MiniApp 1 App** … **MiniApp 9 App**, each with the
+  list of supported apps (or `Not used`). Defaults are the previous fixed assignments, so existing installations
+  behave as before. The Watch experience only tells the driver which slot was selected, so this is how an
+  app other than the default one (for example Plex instead of Disney+) is launched from a tile.
+- **Plex** as a supported app, for the MiniApp properties and for `LAUNCH_APP`. The app id (`3201512006963`)
+  comes from community references, not from Samsung: if the app does not start on your TV model, open an issue
+  with the log lines tagged `[APP]`.
 
 ## [v261021001] - 2026-10-21
 

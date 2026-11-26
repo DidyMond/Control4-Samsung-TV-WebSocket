@@ -4,8 +4,9 @@
 --   ReceivedFromProxy(binding, command, params)  -> handle_proxy
 --   ExecuteCommand(command, params)              -> execute
 --
--- Riceve la TV (`tv`) per iniezione: send_key, launch_app,
--- launch_app_when_on, power. Cosi' si prova senza rete.
+-- Riceve per iniezione la TV (`tv`: send_key, launch_app, launch_app_when_on,
+-- power) e la lettura delle proprieta' (`readProperty`, per l'app di ogni
+-- slot MiniApp). Cosi' si prova senza rete.
 -- ============================================================
 
 local log = require "lib.log"
@@ -22,7 +23,7 @@ local APP_DEBOUNCE_S = 3
 -- (pannello che perde la connessione), il volume non deve salire per sempre.
 local REPEAT_MAX_S = 20
 
-function M.new(tv, now)
+function M.new(tv, now, readProperty)
 	now = now or os.time
 
 	local self = {}
@@ -77,7 +78,7 @@ function M.new(tv, now)
 
 		-- Tile MiniApp della Watch experience: SET_INPUT sulla proxy avswitch
 		if binding == protocol.AVSWITCH_PROXY and command == "SET_INPUT" and params.INPUT then
-			local appName = protocol.MINI_APP_MAP[tostring(params.INPUT)]
+			local appName, why = protocol.mini_app_for(params.INPUT, readProperty)
 			if appName then
 				local t = now()
 				if appName == last_app and (t - last_app_at) < APP_DEBOUNCE_S then
@@ -87,6 +88,8 @@ function M.new(tv, now)
 					log.info("APP", "MiniApp tile -> " .. appName)
 					tv.launch_app_when_on(appName)
 				end
+			elseif protocol.mini_app_property(params.INPUT) then
+				log.info("APP", "MiniApp slot " .. tostring(params.INPUT) .. " ignored: " .. why)
 			end
 			return
 		end

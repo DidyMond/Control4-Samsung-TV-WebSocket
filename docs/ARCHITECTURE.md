@@ -188,8 +188,17 @@ Per far comparire la TV nella stanza (Watch experience), oltre al proxy TV (5000
 - capability `reports_offline = true`, `power_management_method = ToggleCode`.
 
 La proxy `avswitch` (5002) ha connessioni "ponte" nascoste con autobind (1102/3101 lato TV, 2110/4110 lato
-switch) e **10 slot MiniApp** (3201–3210, classe `RF_MINI_APP`) per i minidriver ufficiali. ON/OFF su 5002 sono
+switch) e **9 slot MiniApp** (3201–3209, classe `RF_MINI_APP`) per i minidriver ufficiali. ON/OFF su 5002 sono
 routing e non diventano `KEY_POWER` (spegnevano la TV alla pressione di una tile).
+
+**Quale app per quale slot.** Director manda `SET_INPUT` con il solo numero dello slot: il driver non sa quale
+minidriver ci sia collegato. L'app di ogni slot si sceglie con la proprietà `MiniApp N App` (N = 1…9, stessa
+posizione dello slot 3201…3209), con l'elenco `APP_NAMES` più `Not used`; il predefinito è quello di
+`MINI_APP_SLOTS`. La risoluzione è in `protocol.mini_app_for` (pura, con la lettura della proprietà iniettata da
+`driver.lua`). Aggiungere un'app significa una voce in `APP_NAMES` e `APP_IDS` e l'elemento nelle liste dell'XML:
+i test controllano che le tre cose coincidano. Si usano proprietà e non nuove connessioni perché Composer, aggiornando
+un driver già installato, aggiunge le proprietà ma non sempre le connessioni, e le connessioni nuove costringono a
+rifare i binding.
 
 `tests/test_driver_xml.lua` verifica che ogni proprietà usata dal Lua, ogni HDMI e ogni slot MiniApp mappati
 nel codice esistano nell'XML.

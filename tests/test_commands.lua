@@ -3,7 +3,7 @@ local t = require "tests.support.harness"
 local fake = require "tests.support.fake_c4"
 
 -- TV finta: registra cosa le viene chiesto
-local function setup(power)
+local function setup(power, props)
 	local env = fake.install()
 	local Commands = require "tv.commands"
 	local calls = {}
@@ -13,7 +13,8 @@ local function setup(power)
 		launch_app_when_on = function(app) calls[#calls + 1] = "app_when_on:" .. app end,
 		power = function() return power or "UNKNOWN" end,
 	}
-	local commands = Commands.new(tv, function() return math.floor(env.now / 1000) end)
+	local commands = Commands.new(tv, function() return math.floor(env.now / 1000) end,
+		function(name) return props and props[name] end)
 	return env, commands, calls
 end
 
@@ -68,12 +69,29 @@ t.test("MiniApp: tile -> lancio quando la TV e' accesa; doppione di Director ent
 	t.eq(#calls, 3)
 end)
 
-t.test("tutti e 10 gli slot MiniApp lanciano un'app", function()
+t.test("tutti e 9 gli slot MiniApp lanciano un'app", function()
 	local _, commands, calls = setup()
-	for slot = 3201, 3210 do
+	for slot = 3201, 3209 do
 		commands.handle_proxy(5002, "SET_INPUT", { INPUT = tostring(slot) })
 	end
-	t.eq(#calls, 10)
+	t.eq(#calls, 9)
+end)
+
+t.test("MiniApp: la proprieta' dello slot decide l'app (Plex nello slot 4)", function()
+	local _, commands, calls = setup(nil, { ["MiniApp 4 App"] = "Plex" })
+	commands.handle_proxy(5002, "SET_INPUT", { INPUT = "3204" })
+	commands.handle_proxy(5002, "SET_INPUT", { INPUT = "3203" })
+	t.same(calls, { "app_when_on:Plex", "app_when_on:Prime Video" })
+end)
+
+t.test("MiniApp: slot 'Not used' o con app sconosciuta non lancia nulla", function()
+	local env, commands, calls = setup(nil, { ["MiniApp 1 App"] = "Not used", ["MiniApp 2 App"] = "Boh" })
+	commands.handle_proxy(5002, "SET_INPUT", { INPUT = "3201" })
+	commands.handle_proxy(5002, "SET_INPUT", { INPUT = "3202" })
+	t.same(calls, {})
+	local logged = table.concat(env.printed, "\n")
+	t.contains(logged, "MiniApp slot 3201 ignored: no app assigned")
+	t.contains(logged, "MiniApp slot 3202 ignored: unknown app 'Boh'")
 end)
 
 t.test("PASSTHROUGH: EJECT chiude l'app, comandi sconosciuti ignorati", function()

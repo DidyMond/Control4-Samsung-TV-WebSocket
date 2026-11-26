@@ -5,7 +5,7 @@
 	<created>08/30/2026 11:19 AM</created>
 	<modified>10/21/2026 06:00 PM</modified>
 	<manufacturer>Samsung</manufacturer>
-	<version>261021001</version>
+	<version>261126002</version>
 	<control>lua_gen</control>
 	<controlmethod>ip</controlmethod>
 	<driver>DriverWorks</driver>
@@ -22,7 +22,7 @@
 				<name>Driver Version</name>
 				<type>STRING</type>
 				<readonly>true</readonly>
-				<default>261021001</default>
+				<default>261126002</default>
 			</property>
 			<property>
 				<name>-Connection</name>
@@ -66,6 +66,191 @@
 					<item>Select...</item>
 					<item>Pair with TV</item>
 					<item>Unpair</item>
+				</items>
+			</property>
+			<property>
+				<name>-MiniApps</name>
+				<type>LABEL</type>
+				<default>MiniApp Slots</default>
+			</property>
+			<property>
+				<name>MiniApp 1 App</name>
+				<description>App launched when the minidriver bound to MiniApp 1 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Netflix</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 2 App</name>
+				<description>App launched when the minidriver bound to MiniApp 2 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>YouTube</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 3 App</name>
+				<description>App launched when the minidriver bound to MiniApp 3 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Prime Video</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 4 App</name>
+				<description>App launched when the minidriver bound to MiniApp 4 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Disney+</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 5 App</name>
+				<description>App launched when the minidriver bound to MiniApp 5 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Spotify</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 6 App</name>
+				<description>App launched when the minidriver bound to MiniApp 6 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Apple TV</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 7 App</name>
+				<description>App launched when the minidriver bound to MiniApp 7 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>DAZN</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 8 App</name>
+				<description>App launched when the minidriver bound to MiniApp 8 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>RaiPlay</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
+				</items>
+			</property>
+			<property>
+				<name>MiniApp 9 App</name>
+				<description>App launched when the minidriver bound to MiniApp 9 is selected in the Watch experience</description>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Paramount+</default>
+				<items>
+					<item>Netflix</item>
+					<item>YouTube</item>
+					<item>Prime Video</item>
+					<item>Disney+</item>
+					<item>Spotify</item>
+					<item>Apple TV</item>
+					<item>DAZN</item>
+					<item>RaiPlay</item>
+					<item>Paramount+</item>
+					<item>Plex</item>
+					<item>Not used</item>
 				</items>
 			</property>
 			<property>
@@ -114,7 +299,7 @@
 			</command>
 			<command>
 				<name>LAUNCH_APP</name>
-				<description>Launch a TV app by name (Netflix, YouTube, Prime Video, Disney+, Apple TV, Spotify, DAZN, RaiPlay, Paramount+)</description>
+				<description>Launch a TV app by name (Netflix, YouTube, Prime Video, Disney+, Apple TV, Spotify, DAZN, RaiPlay, Paramount+, Plex)</description>
 				<params>
 					<param>
 						<name>AppName</name>

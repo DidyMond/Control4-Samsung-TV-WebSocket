@@ -83,8 +83,26 @@ t.test("ogni ingresso HDMI e ogni slot MiniApp mappati nel codice hanno la conne
 	for input in pairs(protocol.HDMI_MAP) do
 		t.contains(xml, "<id>" .. input .. "</id>", "HDMI " .. input)
 	end
-	for slot in pairs(protocol.MINI_APP_MAP) do
-		t.truthy(xml:find('<connection proxybindingid="5002">%s*<id>' .. slot .. "</id>"), "MiniApp " .. slot)
+	for _, slot in ipairs(protocol.MINI_APP_SLOTS) do
+		t.truthy(xml:find('<connection proxybindingid="5002">%s*<id>' .. slot.id .. "</id>"), "MiniApp " .. slot.id)
+	end
+end)
+
+t.test("ogni slot MiniApp ha la proprieta' 'MiniApp N App' con default e app del codice", function()
+	local expected_items = {}
+	for _, name in ipairs(protocol.APP_NAMES) do expected_items[#expected_items + 1] = name end
+	expected_items[#expected_items + 1] = protocol.NOT_USED
+
+	for index, slot in ipairs(protocol.MINI_APP_SLOTS) do
+		local name = "MiniApp " .. index .. " App"
+		t.eq((protocol.mini_app_property(slot.id)), name)
+		local block = xml:match("<property>%s*<name>" .. name .. "</name>.-</property>")
+		t.truthy(block, "proprieta' mancante: " .. name)
+		t.contains(block, "<type>LIST</type>")
+		t.eq(block:match("<default>([^<]*)</default>"), slot.default, name)
+		local items = {}
+		for item in block:gmatch("<item>([^<]*)</item>") do items[#items + 1] = item end
+		t.same(items, expected_items, name)
 	end
 end)
 

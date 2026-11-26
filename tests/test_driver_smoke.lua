@@ -73,6 +73,15 @@ t.test("comando proxy -> tasto Samsung inviato sul WebSocket", function()
 	t.contains(payload, "KEY_VOLUP")
 end)
 
+t.test("tile MiniApp: l'app arriva dalla proprieta' dello slot (Plex nello slot 4)", function()
+	local env = load_driver()
+	OnDriverInit()
+	Properties["MiniApp 4 App"] = "Plex"
+	ReceivedFromProxy(5002, "SET_INPUT", { INPUT = "3204" })
+	t.contains(logged(env), "MiniApp tile -> Plex")
+	t.falsy(logged(env):find("Disney", 1, true))
+end)
+
 t.test("ExecuteCommand SEND_KEY arriva alla coda comandi", function()
 	local env = load_driver({ paired = true })
 	OnDriverInit()

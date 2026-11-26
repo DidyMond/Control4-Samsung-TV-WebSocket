@@ -11,7 +11,8 @@ local net = require "lib.net"
 local tv = require "tv.samsung_tv"
 local Commands = require "tv.commands"
 
-local commands = Commands.new(tv)
+-- l'app di ogni slot MiniApp si sceglie con le proprieta' "MiniApp N App"
+local commands = Commands.new(tv, nil, function(name) return Properties[name] end)
 
 local TAG = "DRIVER"
 

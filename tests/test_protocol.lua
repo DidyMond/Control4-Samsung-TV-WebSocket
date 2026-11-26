@@ -58,13 +58,57 @@ t.test("mappe: ogni valore e' un codice tasto valido", function()
 	end
 end)
 
-t.test("ogni MiniApp e' lanciabile (ha un id applicazione)", function()
-	local n = 0
-	for slot, app in pairs(protocol.MINI_APP_MAP) do
-		t.truthy(protocol.APP_IDS[app], "slot " .. slot .. " -> " .. app .. " senza id")
-		n = n + 1
+t.test("APP_NAMES e APP_IDS coincidono: ogni app dell'elenco e' lanciabile", function()
+	local seen = {}
+	for _, name in ipairs(protocol.APP_NAMES) do
+		t.truthy(protocol.APP_IDS[name], name .. " senza id applicazione")
+		seen[name] = true
 	end
-	t.eq(n, 9)
+	for name in pairs(protocol.APP_IDS) do t.truthy(seen[name], name .. " manca in APP_NAMES") end
+	t.eq(#protocol.APP_NAMES, 10)
+	t.truthy(seen["Plex"])
+end)
+
+t.test("slot MiniApp: 9 slot consecutivi, ognuno con un'app predefinita lanciabile", function()
+	t.eq(#protocol.MINI_APP_SLOTS, 9)
+	for index, slot in ipairs(protocol.MINI_APP_SLOTS) do
+		t.eq(slot.id, tostring(3200 + index))
+		t.truthy(protocol.APP_IDS[slot.default], "slot " .. slot.id .. " -> " .. slot.default)
+	end
+end)
+
+t.test("mini_app_property: nome della proprieta' dello slot", function()
+	t.eq((protocol.mini_app_property("3201")), "MiniApp 1 App")
+	t.eq((protocol.mini_app_property(3204)), "MiniApp 4 App")
+	t.eq((protocol.mini_app_property("3209")), "MiniApp 9 App")
+	t.eq(protocol.mini_app_property("3210"), nil)
+	t.eq(protocol.mini_app_property("1001"), nil)
+end)
+
+t.test("mini_app_for: predefinito se la proprieta' manca o e' vuota", function()
+	t.eq((protocol.mini_app_for("3204", nil)), "Disney+")
+	t.eq((protocol.mini_app_for("3204", function() return nil end)), "Disney+")
+	t.eq((protocol.mini_app_for("3204", function() return "" end)), "Disney+")
+	t.eq((protocol.mini_app_for("3201", function() return "Netflix" end)), "Netflix")
+end)
+
+t.test("mini_app_for: la proprieta' sceglie l'app (Plex al posto di Disney+)", function()
+	local props = { ["MiniApp 4 App"] = "Plex" }
+	local read = function(name) return props[name] end
+	t.eq((protocol.mini_app_for("3204", read)), "Plex")
+	t.eq((protocol.mini_app_for("3203", read)), "Prime Video", "gli altri slot non cambiano")
+end)
+
+t.test("mini_app_for: 'Not used', app sconosciuta e slot che non esiste", function()
+	local app, why = protocol.mini_app_for("3204", function() return protocol.NOT_USED end)
+	t.eq(app, nil)
+	t.contains(why, "no app")
+	app, why = protocol.mini_app_for("3204", function() return "Boh" end)
+	t.eq(app, nil)
+	t.contains(why, "unknown app 'Boh'")
+	app, why = protocol.mini_app_for("3299", nil)
+	t.eq(app, nil)
+	t.contains(why, "not a MiniApp slot")
 end)
 
 t.test("is_housekeeping: routing sempre; ON/OFF solo sulla avswitch", function()

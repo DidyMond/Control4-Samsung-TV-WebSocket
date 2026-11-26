@@ -158,18 +158,53 @@ M.HDMI_MAP = {
 	["1003"] = "KEY_HDMI3",
 }
 
--- Slot MiniApp (binding della proxy avswitch) -> nome dell'app
-M.MINI_APP_MAP = {
-	["3201"] = "Netflix",
-	["3202"] = "YouTube",
-	["3203"] = "Prime Video",
-	["3204"] = "Disney+",
-	["3205"] = "Spotify",
-	["3206"] = "Apple TV",
-	["3207"] = "DAZN",
-	["3208"] = "RaiPlay",
-	["3209"] = "Paramount+",
+-- App lanciabili, nell'ordine in cui compaiono nelle proprieta' "MiniApp N App"
+M.APP_NAMES = {
+	"Netflix", "YouTube", "Prime Video", "Disney+", "Spotify", "Apple TV", "DAZN", "RaiPlay",
+	"Paramount+", "Plex",
 }
+
+-- Slot MiniApp (binding della proxy avswitch) con l'app predefinita. La
+-- proprieta' "MiniApp N App" (N = posizione nell'elenco) permette di
+-- assegnare a ogni slot l'app che si vuole: Director manda solo il numero
+-- dello slot, il driver non sa quale minidriver ci sia collegato.
+M.MINI_APP_SLOTS = {
+	{ id = "3201", default = "Netflix" },
+	{ id = "3202", default = "YouTube" },
+	{ id = "3203", default = "Prime Video" },
+	{ id = "3204", default = "Disney+" },
+	{ id = "3205", default = "Spotify" },
+	{ id = "3206", default = "Apple TV" },
+	{ id = "3207", default = "DAZN" },
+	{ id = "3208", default = "RaiPlay" },
+	{ id = "3209", default = "Paramount+" },
+}
+
+-- Valore della proprieta' che disattiva uno slot
+M.NOT_USED = "Not used"
+
+-- "3204" -> "MiniApp 4 App", slot; nil se non e' uno slot MiniApp.
+function M.mini_app_property(slotId)
+	local id = tostring(slotId)
+	for index, slot in ipairs(M.MINI_APP_SLOTS) do
+		if slot.id == id then return "MiniApp " .. index .. " App", slot end
+	end
+	return nil
+end
+
+-- App da lanciare per uno slot: la scelta nella proprieta' se c'e', altrimenti
+-- il predefinito. `readProperty(nome)` legge il valore della proprieta'.
+-- Restituisce il nome dell'app oppure nil e il motivo.
+function M.mini_app_for(slotId, readProperty)
+	local property, slot = M.mini_app_property(slotId)
+	if not property then return nil, "not a MiniApp slot" end
+
+	local choice = readProperty and readProperty(property)
+	if choice == nil or choice == "" then choice = slot.default end
+	if choice == M.NOT_USED then return nil, "no app assigned to the slot" end
+	if not M.APP_IDS[choice] then return nil, "unknown app '" .. tostring(choice) .. "'" end
+	return choice
+end
 
 -- Nome dell'app -> id applicazione Tizen (POST /api/v2/applications/<id>)
 M.APP_IDS = {
@@ -182,6 +217,7 @@ M.APP_IDS = {
 	["DAZN"] = "3201806016390",
 	["RaiPlay"] = "111399002034",
 	["Paramount+"] = "3202110025305",
+	["Plex"] = "3201512006963",
 }
 
 -- Comandi di routing/stato AV che Director manda di continuo e che non

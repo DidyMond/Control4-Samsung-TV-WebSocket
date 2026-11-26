@@ -153,6 +153,11 @@ function M.new(tv, now, readProperty)
 			else
 				log.warn("CMD", "LAUNCH_APP called without AppName")
 			end
+		elseif command == "APP_STATUS" then
+			-- diagnostica (ramo sperimentale): stato di un'app letto dalla TV
+			tv.app_status(params.AppName or "Plex")
+		elseif command == "APP_STATUS_ALL" then
+			tv.app_status_all()
 		else
 			log.debug("CMD", "unhandled command -> " .. tostring(command))
 		end

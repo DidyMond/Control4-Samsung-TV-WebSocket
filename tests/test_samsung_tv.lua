@@ -470,6 +470,83 @@ t.test("launch_app_when_on: rinuncia dopo 10 tentativi", function()
 end)
 
 -- ------------------------------------------------------------
+-- Stato delle app (diagnostica)
+-- ------------------------------------------------------------
+t.test("app_status: GET sulla 8002, legge running e visible e chiama onResult", function()
+	local env, tv = setup()
+	local got, code
+	t.truthy(tv.app_status("Plex", function(state, c) got, code = state, c end))
+	t.eq(env.conns[6098].ssl, "SSL")
+	env.deliver_status(6098, "ONLINE")
+	t.contains(env.last_sent(6098), "GET /api/v2/applications/3201512006963 HTTP/1.1\r\nHost: 192.168.1.50:8002\r\n")
+	env.deliver_data(6098, 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"id":"3201512006963","name":"Plex",')
+	env.advance(50)
+	env.deliver_data(6098, '"running":true,"visible":false}')
+	t.eq(got, nil, "ancora in attesa del silenzio")
+	env.advance(200)
+	t.eq(code, 200)
+	t.eq(got.running, true)
+	t.eq(got.visible, false)
+	t.contains(logged(env), "status of 'Plex': HTTP 200 running=true visible=false")
+	t.eq(env.disconnects[#env.disconnects].binding, 6098)
+	t.eq(env.pending_timers(), 0)
+end)
+
+t.test("app_status: la TV chiude dopo aver risposto -> risposta usata subito", function()
+	local env, tv = setup()
+	local got
+	tv.app_status("Plex", function(state) got = state end)
+	env.deliver_status(6098, "ONLINE")
+	env.deliver_data(6098, 'HTTP/1.1 200 OK\r\n\r\n{"running":false,"visible":false}')
+	env.deliver_status(6098, "OFFLINE")
+	t.eq(got.running, false)
+	t.eq(got.visible, false)
+end)
+
+t.test("app_status: timeout, connessione rifiutata, app sconosciuta e IP mancante chiamano onResult(nil)", function()
+	local env, tv = setup()
+	local calls = {}
+	local function cb(state) calls[#calls + 1] = state == nil and "nil" or "state" end
+
+	tv.app_status("Plex", cb)
+	env.deliver_status(6098, "ONLINE")
+	env.advance(5000)
+	t.contains(logged(env), "status query of 'Plex' timed out")
+
+	tv.app_status("Plex", cb)
+	env.deliver_status(6098, "OFFLINE")
+	t.contains(logged(env), "connection refused (status query)")
+
+	t.falsy(tv.app_status("Sconosciuta", cb))
+	Properties["IP Address"] = ""
+	t.falsy(tv.app_status("Plex", cb))
+	t.same(calls, { "nil", "nil", "nil", "nil" })
+end)
+
+t.test("app_status_all: interroga le 10 app una dopo l'altra e va avanti anche dopo un errore", function()
+	local env, tv = setup()
+	local protocol = require "tv.protocol"
+	tv.app_status_all()
+	local asked = {}
+	for index = 1, #protocol.APP_NAMES do
+		t.truthy(env.conns[6098], "richiesta " .. index)
+		env.deliver_status(6098, "ONLINE")
+		asked[#asked + 1] = env.last_sent(6098):match("applications/(%d+) ")
+		if index == 3 then
+			env.deliver_status(6098, "OFFLINE") -- un errore non ferma la sequenza
+		else
+			env.deliver_data(6098, 'HTTP/1.1 200 OK\r\n\r\n{"running":false,"visible":false}')
+			env.advance(200)
+		end
+	end
+	t.eq(#asked, 10)
+	for index, name in ipairs(protocol.APP_NAMES) do
+		t.eq(asked[index], protocol.APP_IDS[name], name)
+	end
+	t.contains(logged(env), "status of all apps read")
+end)
+
+-- ------------------------------------------------------------
 t.test("shutdown: nessun timer rimasto", function()
 	local env, tv = setup()
 	run_check(env, tv, ON_BODY)

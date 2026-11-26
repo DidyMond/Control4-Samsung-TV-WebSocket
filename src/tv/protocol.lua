@@ -44,6 +44,18 @@ function M.parse_power_state(body)
 	return "OFF", "PowerState " .. ps
 end
 
+-- Risposta di GET /api/v2/applications/<id>: {"running":true,"visible":false,...}
+-- Restituisce { running = bool|nil, visible = bool|nil } (nil se il campo manca).
+function M.parse_app_state(response)
+	local function flag(name)
+		local value = tostring(response):match('"' .. name .. '"%s*:%s*(%a+)')
+		if value == "true" then return true end
+		if value == "false" then return false end
+		return nil
+	end
+	return { running = flag("running"), visible = flag("visible") }
+end
+
 -- Codice di stato di una risposta HTTP ("HTTP/1.1 200 OK" -> 200).
 function M.http_status(response)
 	local code = tostring(response):match("^HTTP/%d%.%d (%d+)")

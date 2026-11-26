@@ -476,6 +476,79 @@ function M.send_key(keyCode)
 end
 
 -- ------------------------------------------------------------
+-- HTTPS verso la TV (porta 8002, binding 6098): uno scambio per volta
+--   opts.request     richiesta HTTP completa
+--   opts.settle_ms   nil = la prima risposta chiude lo scambio; altrimenti si
+--                    attende questo silenzio per riunire la risposta a pezzi
+--   opts.on_response(data), opts.on_timeout(), opts.on_refused()
+-- ------------------------------------------------------------
+local function https_exchange(host, opts)
+	local done = false
+	local timers = {}
+	local buffer = ""
+
+	local function release()
+		net.unregister(APP_BINDING)
+		C4:NetDisconnect(APP_BINDING, APP_PORT)
+		C4:SetBindingAddress(APP_BINDING, "")
+	end
+
+	local function finish()
+		done = true
+		for _, t in ipairs(timers) do t:cancel() end
+		release()
+	end
+
+	-- pulizia preventiva del binding (uno scambio precedente ancora aperto)
+	release()
+
+	net.register(APP_BINDING,
+		function(_, _, status)
+			if done then return end
+			if status == "ONLINE" then
+				C4:SendToNetwork(APP_BINDING, APP_PORT, opts.request)
+				timers[#timers + 1] = timer.after(APP_TIMEOUT_MS, function()
+					if not done then
+						finish()
+						opts.on_timeout()
+					end
+				end)
+			elseif status == "OFFLINE" then
+				local received = buffer
+				finish()
+				if received ~= "" then
+					opts.on_response(received) -- la TV ha chiuso dopo aver risposto
+				else
+					opts.on_refused()
+				end
+			end
+		end,
+		function(_, _, data)
+			if done then return end
+			if not opts.settle_ms then
+				finish()
+				opts.on_response(data)
+				return
+			end
+			local first = (buffer == "")
+			buffer = buffer .. data
+			if first then
+				timers[#timers + 1] = timer.after(opts.settle_ms, function()
+					if not done then
+						local received = buffer
+						finish()
+						opts.on_response(received)
+					end
+				end)
+			end
+		end)
+
+	C4:CreateNetworkConnection(APP_BINDING, host, "SSL")
+	C4:NetPortOptions(APP_BINDING, APP_PORT, "SSL", SSL_OPTIONS)
+	C4:NetConnect(APP_BINDING, APP_PORT)
+end
+
+-- ------------------------------------------------------------
 -- Lancio applicazioni: POST https://<ip>:8002/api/v2/applications/<id>
 -- ------------------------------------------------------------
 function M.launch_app(appName)
@@ -492,56 +565,81 @@ function M.launch_app(appName)
 
 	log.info("APP", "launching '" .. appName .. "' (id=" .. appId .. ")")
 
-	local done = false
-	local guard
-
-	local function finish()
-		done = true
-		if guard then guard:cancel() end
-		net.unregister(APP_BINDING)
-		C4:NetDisconnect(APP_BINDING, APP_PORT)
-		C4:SetBindingAddress(APP_BINDING, "")
-	end
-
-	-- pulizia preventiva del binding (un lancio precedente ancora aperto)
-	net.unregister(APP_BINDING)
-	C4:NetDisconnect(APP_BINDING, APP_PORT)
-	C4:SetBindingAddress(APP_BINDING, "")
-
-	net.register(APP_BINDING,
-		function(_, _, status)
-			if done then return end
-			if status == "ONLINE" then
-				C4:SendToNetwork(APP_BINDING, APP_PORT,
-					"POST /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
-					"Host: " .. host .. ":" .. APP_PORT .. "\r\n" ..
-					"Content-Length: 0\r\nConnection: close\r\n\r\n")
-				guard = timer.after(APP_TIMEOUT_MS, function()
-					if not done then
-						log.warn("APP", "launch of '" .. appName .. "' timed out")
-						finish()
-					end
-				end)
-			elseif status == "OFFLINE" then
-				log.warn("APP", "HTTPS connection refused (app launch)")
-				finish()
-			end
-		end,
-		function(_, _, data)
-			if done then return end
+	https_exchange(host, {
+		request = "POST /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
+			"Host: " .. host .. ":" .. APP_PORT .. "\r\n" ..
+			"Content-Length: 0\r\nConnection: close\r\n\r\n",
+		on_response = function(data)
 			local code = protocol.http_status(data)
 			if code and code >= 400 then
 				log.warn("APP", "TV answered HTTP " .. code .. " launching '" .. appName .. "'")
 			else
 				log.debug("APP", "launch response received (HTTP " .. tostring(code) .. ")")
 			end
-			finish()
-		end)
-
-	C4:CreateNetworkConnection(APP_BINDING, host, "SSL")
-	C4:NetPortOptions(APP_BINDING, APP_PORT, "SSL", SSL_OPTIONS)
-	C4:NetConnect(APP_BINDING, APP_PORT)
+		end,
+		on_timeout = function()
+			log.warn("APP", "launch of '" .. appName .. "' timed out")
+		end,
+		on_refused = function()
+			log.warn("APP", "HTTPS connection refused (app launch)")
+		end,
+	})
 	return true
+end
+
+-- Stato di un'app sulla TV: GET /api/v2/applications/<id>. Diagnostica per
+-- capire se la TV dice quando si esce da un'app. `onResult(state, code)` e'
+-- chiamata sempre; `state` e' nil se la TV non ha risposto.
+function M.app_status(appName, onResult)
+	local appId = protocol.APP_IDS[appName]
+	if not appId then
+		log.warn("APP", "app '" .. tostring(appName) .. "' not mapped")
+		if onResult then onResult(nil) end
+		return false
+	end
+	local host = get_ip()
+	if not host then
+		log.warn("APP", "IP Address not set, cannot query app")
+		if onResult then onResult(nil) end
+		return false
+	end
+
+	https_exchange(host, {
+		request = "GET /api/v2/applications/" .. appId .. " HTTP/1.1\r\n" ..
+			"Host: " .. host .. ":" .. APP_PORT .. "\r\nConnection: close\r\n\r\n",
+		settle_ms = REST_SETTLE_MS,
+		on_response = function(data)
+			local code = protocol.http_status(data)
+			local state = protocol.parse_app_state(data)
+			log.info("APP", "status of '" .. appName .. "': HTTP " .. tostring(code) ..
+				" running=" .. tostring(state.running) .. " visible=" .. tostring(state.visible))
+			log.debug("APP", "status body: " .. (data:match("\r\n\r\n(.*)$") or data):sub(1, 300))
+			if onResult then onResult(state, code) end
+		end,
+		on_timeout = function()
+			log.warn("APP", "status query of '" .. appName .. "' timed out")
+			if onResult then onResult(nil) end
+		end,
+		on_refused = function()
+			log.warn("APP", "HTTPS connection refused (status query)")
+			if onResult then onResult(nil) end
+		end,
+	})
+	return true
+end
+
+-- Stato di tutte le app note, una dopo l'altra (il binding e' uno solo).
+function M.app_status_all()
+	local names = protocol.APP_NAMES
+	local function step(index)
+		if index > #names then
+			log.info("APP", "status of all apps read")
+			return
+		end
+		local started = M.app_status(names[index], function() step(index + 1) end)
+		if not started then step(index + 1) end
+	end
+	step(1)
 end
 
 -- Se la TV e' accesa lancia subito; altrimenti aspetta che il REST confermi
